@@ -1,0 +1,138 @@
+#!/bin/bash
+
+DEST=/mnt/shell/emulated/0/test
+
+keyevents()
+{
+cat <<ENDHERE
+=====================================================
+Keycode			Event
+=====================================================
+1			Menu
+2			Right
+3			Home
+4			Back
+5			Call
+6			End Call
+7-16			0-9
+17			Star *
+18			Pound
+19			DPAD UP
+20			DPAD Down
+21			DPAD Left
+22			DPAD Right
+23			DPAD Center
+24			Volume UP
+25			Volume Down
+26			Power ON/OFF
+27			Camera
+29-54			A-Z
+	
+ENDHERE
+}
+
+usage()
+{
+      echo ""
+      echo "Usage: `basename $0` <option> [Parameter]"
+      echo ""
+      echo "Options"
+      echo ""
+      echo "-d            : Adb devices"
+      echo "-h            : Show Home screen"
+      echo "-b            : Back button"
+      echo "-w            : Open whatsapp"
+      echo "-c  <number>  : Make a call"
+      echo "-k  <keynum>  : Send key event [1-56]"
+      echo "-r            : Reboot in regular mode"
+      echo "-R            : Reboot in fastboot mode"
+      echo "-t            : Root and remount device"
+      echo "-p  <file>    : Push this shell script file to $DEST"
+      echo "-P            : Power ON/OFF"
+      echo ""
+      echo "For Keyevents Type `basename $0` -k ? "
+      echo ""
+}
+
+ADLINES=`adb devices | wc -l`
+if [ "$ADLINES" -le 2 ]
+then
+        echo "No adb devices detected"
+        exit
+fi
+
+echo ""
+
+found=0
+while getopts "c:dhbk:wrRtp:P" opt; do
+  found=1
+  case $opt in
+    d)
+        adb devices
+        ;;
+    h)
+        echo "Show Home screen..."
+        adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
+        ;;
+    b)
+        echo "Back..."
+	adb shell input keyevent 4
+        ;;
+    k)
+	if [ $OPTARG == "?" ]; then
+		keyevents
+	else
+        	echo "Send key event $OPTARG..."
+		adb shell input keyevent $OPTARG
+	fi
+        ;;
+    w)
+        echo "Opening Whatsapp..."
+	adb shell am start -n com.whatsapp/.Main
+        ;;
+    c)
+        serial=`adb devices | head -2 | tail -1 | cut -f1`
+        echo "Calling $OPTARG with serial number $serial..."
+        adb -s $serial shell am start -a android.intent.action.CALL -d tel:$OPTARG
+        # adb -s 25f9b21 shell am start -a android.intent.action.CALL -d tel:$OPTARG
+        # adb -s 07b3f0e997d5076c shell am start -a android.intent.action.CALL -d tel:$OPTARG
+        ;;
+    r)
+        echo "Rebooting..."
+        adb reboot
+        ;;
+    R)
+        echo "Rebooting in fastboot mode..."
+        adb reboot bootloader
+        ;;
+    t)
+        echo "adb : Restart in root mode and remounting..."
+        adb root
+        adb remount
+	;;
+    p)
+        echo "adb pushing the file/directory $OPTARG to $DEST/..."
+	adb shell mkdir -p $DEST
+        adb push $OPTARG $DEST/`basename $OPTARG`
+        ;;
+    P)
+        echo "adb : Power ON/OFF..."
+        adb shell input keyevent 26
+        ;;
+    \?)
+        echo ""
+        echo "Invalid/insufficient arguments mentioned!"
+        usage
+        ;;
+  esac
+done
+
+echo ""
+
+if ((!found)); then
+  echo "No arguments mentioned !"
+  usage
+fi
+
+# adbcmd -c 08030297949
+

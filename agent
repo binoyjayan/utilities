@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# This script should be run before comminting anything to git repos
+
+spid=`ps axf | grep ssh-agent | grep -v grep | grep -v dbus-launch | awk '{print $1}'`
+if [ -z $spid ]
+then
+	echo "ssh-agent is not running. Executing..."
+	ssh-agent
+fi
+spid=`ps axf | grep ssh-agent | grep -v grep | grep -v dbus-launch | awk '{print $1}'`
+snum=`expr $spid - 1`
+
+# echo "pid = $spid  snum=$snum"
+LFILE=`ls /tmp/ssh-*/agent.$snum`
+
+export SSH_AUTH_SOCK=$LFILE
+export SSH_AGENT_PID=$spid
+
+echo export SSH_AUTH_SOCK : $LFILE
+echo export SSH_AGENT_PID : $spid
+

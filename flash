@@ -1,0 +1,64 @@
+#!/bin/bash
+
+ALL_PARTS=(
+"boot"
+"cache"
+"persist"
+"ramdisk"
+"ramdisk-recovery"
+"recovery" 
+"system"
+"userdata"
+)
+
+PARTS=(
+"boot"
+"recovery" 
+"system"
+"userdata"
+)
+
+IDIR=""
+FD=`sudo fastboot devices`
+if [ -z "$FD" ]
+then
+        echo "No fast boot devices detected"
+        exit
+fi
+
+if [ -n "$1" -a -d "$1" ]
+then
+	IDIR=`readlink -m $1`
+        echo "Flashing images in the directory '$IDIR'..."
+	cd $IDIR
+else
+        echo "Flashing images in the current directory..."
+	cd $PWD
+fi
+
+count=0
+
+for p in "${PARTS[@]}"
+do
+	echo "Checking $p.img"
+	if [ -f "$p.img"  ]
+	then
+		echo "Flashing $p.img..."
+		sudo fastboot flash $p $p.img
+		count=1
+	fi
+done
+cd -
+
+if [ $count -eq 0 ]
+then
+	echo "No images were flashed."
+else
+	sudo fastboot reboot
+fi
+
+
+
+
+
+

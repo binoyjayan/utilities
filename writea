@@ -1,0 +1,44 @@
+#!/bin/bash
+# Script to send message to all users logged in the machine
+# Or to a specific user except the current user 
+
+usage()
+{
+cat <<ENDHERE
+
+Usage:
+
+writea <message in quotes> [user]
+
+ENDHERE
+}
+
+if [ "$1" == "" ]
+then
+	usage
+	exit
+fi
+
+me=`whoami`
+count=0
+
+who |
+while read -r line
+do
+	usr=`echo $line | awk '{print $1}'`
+	tt=`echo $line | awk '{print $2}'`
+
+	# Send message to all users logged in except me if second arg is empty
+	# if [[  ( "$2" == "" && "$usr" != "$me" ) || ( "$2" == "$usr" ) ]] 
+	if [[  ( "$2" == "" && "$usr" != "$me" ) || ( "$2" == "$usr" && "$usr" != "$me" ) ]] 
+	then
+		echo "Sending message '$1' to $usr on $tt"
+		echo "$1" | write $usr $tt
+		count=`expr $count + 1`
+		# echo "count : $count"
+	fi
+done
+
+# echo "Sent message to $count terminal(s)"
+
+

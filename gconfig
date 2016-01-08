@@ -1,0 +1,35 @@
+#!/bin/bash
+# Grep config value in kernel
+# Display Makefile and Kconfig entries
+
+
+CNAME="$1"
+DIR="."
+
+if [ "$1" == "" ]
+then
+	echo ""
+        echo "Usage : `basename $0` CONFIG Name (Without CONFIG_ prefix) [Search directory]"
+	echo ""
+        exit
+fi
+
+if [ "$2" != "" ]
+then
+	DIR=$2
+fi
+
+echo "Searching Kconfig entries..."
+grep -r -A 2 "config $CNAME" $DIR 2> /dev/null | grep Kconfig
+echo ""
+
+# exit
+
+echo "Searching Makefile entries..."
+grep -r "CONFIG_$CNAME" $DIR 2> /dev/null | grep Makefile
+echo ""
+
+echo "Searching other entries..."
+grep -r "CONFIG_$CNAME" $DIR 2> /dev/null | grep -v "CONFIG_$CNAME=y" | grep -v Makefile | grep -v '.git'
+echo ""
+

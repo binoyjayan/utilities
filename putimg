@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ "$1" == "" ]
+then
+	echo ""
+        echo "Usage : `basename $0` <name of images folder>"
+	echo ""
+        exit
+fi
+
+IMGDIR=/local/mnt/workspace/images/$1
+mkdir -p $IMGDIR
+
+if [ ! -f "out/target/product/msm8960/boot.img" ]
+then
+	echo ""
+        echo "Could not find the image out/target/product/msm8960/boot.img"
+	echo ""
+	exit
+fi
+
+echo "Copying images to $IMGDIR"
+
+cp -v out/target/product/msm8960/boot.img             $IMGDIR
+cp -v out/target/product/msm8960/system.img           $IMGDIR
+cp -v out/target/product/msm8960/userdata.img         $IMGDIR
+
+# cp -v out/target/product/msm8960/cache.img            $IMGDIR
+# cp -v out/target/product/msm8960/persist.img          $IMGDIR
+# cp -v out/target/product/msm8960/ramdisk.img          $IMGDIR
+# cp -v out/target/product/msm8960/ramdisk-recovery.img $IMGDIR
+# cp -v out/target/product/msm8960/recovery.img         $IMGDIR

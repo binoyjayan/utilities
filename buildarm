@@ -1,0 +1,24 @@
+
+
+
+#!/bin/bash
+# change the paths below and name the script as something like: buildarm
+# copy or save it somwhere in your normal PATH
+# Then, to run make(for example) just run: 'buildarm make'
+
+# ARMGCC=/local/mnt/workspace/src/quic/RALL/prebuilts/gcc/linux-x86/arm/arm-eabi-4.8
+# export CC=arm-eabi-gcc
+# ARMGCC=/local/mnt/workspace/src/quic/RALL/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.8
+# export CC=arm-linux-androideabi-gcc
+
+
+ARMGCC=/prj/l4linux/arm_compilers/arm32-linaro-compiler-4.8.2
+export CC=aarch64-linux-gnu-gcc
+
+# ARMGCC=/prj/l4linux/arm64-linaro-compiler/gcc-linaro-aarch64-linux-gnu-4.8-2013.09_linux
+# export CC=aarch64-linux-gnu-gcc
+
+echo "Using gcc=$ARMGCC"
+export PATH=$ARMGCC/bin:$PATH
+export LD_LIBRARY_PATH=$ARMGCC/lib
+exec "$@"

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ `whoami` != root ]
+then
+	echo "Run the command as a root"
+	exit
+fi
+ 
+echo hostname=`hostname` [`hostname -i`]
+echo bios-vendor=`dmidecode -s bios-vendor`
+echo bios-version=`dmidecode -s bios-version`
+echo bios-release-date=`dmidecode -s bios-release-date`
+echo system-manufacturer=`dmidecode -s system-manufacturer`
+echo system-product-name=`dmidecode -s system-product-name`
+echo system-version=`dmidecode -s system-version`
+echo system-serial-number=`dmidecode -s system-serial-number`
+echo system-uuid=`dmidecode -s system-uuid`
+echo baseboard-manufacturer=`dmidecode -s baseboard-manufacturer`
+echo baseboard-product-name=`dmidecode -s baseboard-product-name`
+echo baseboard-version=`dmidecode -s baseboard-version`
+echo baseboard-serial-number=`dmidecode -s baseboard-serial-number`
+echo baseboard-asset-tag=`dmidecode -s baseboard-asset-tag`
+echo chassis-manufacturer=`dmidecode -s chassis-manufacturer`
+echo chassis-type=`dmidecode -s chassis-type`
+echo chassis-version=`dmidecode -s chassis-version`
+echo chassis-serial-number=`dmidecode -s chassis-serial-number`
+echo chassis-asset-tag=`dmidecode -s chassis-asset-tag`
+echo processor-family=`dmidecode -s processor-family`
+echo processor-manufacturer=`dmidecode -s processor-manufacturer`
+echo processor-version=`dmidecode -s processor-version`
+echo processor-frequency=`dmidecode -s processor-frequency`
+

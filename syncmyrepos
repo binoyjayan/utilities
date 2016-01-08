@@ -1,0 +1,57 @@
+#!/bin/bash
+TMPDIR=/local/mnt/workspace/tmp/reposync
+LOGFILE=$TMPDIR/syncmyrepos.log
+SYNCLOG=$TMPDIR/reposync.log
+
+REPOS=(
+"/local/mnt/workspace/src/quic/REPO"
+)
+
+# "/local/mnt/workspace/src/quic/RALL"    <<-- Not updated. Used for test
+# "/local/mnt/workspace/src/quic/REPO"    <<-- Has latest changes. Always synced
+# "/local/mnt/workspace/src/quic/REP0"    <<-- Has oldest change
+
+mkdir -p $TMPDIR
+rm -f $SYNCLOG
+echo "`date`: Started sync job for `whoami`" >> $LOGFILE 
+
+for p in "${REPOS[@]}"
+do
+	if [ -d "$p"  ]
+	then
+		echo "`date`: Started syncing repo   : $p" >> $LOGFILE 
+		if [ "$1" == "--sync"  ]
+		then
+			cd $p > /dev/null
+			echo "-----------------------------------------------------------------------" >> $SYNCLOG
+			echo "   $p " >> $SYNCLOG
+			echo "-----------------------------------------------------------------------" >> $SYNCLOG
+			/usr2/c_bjayan/bin/repo sync -j16 &>> $SYNCLOG
+			cd - > /dev/null
+		else
+			echo "`date`: rep sync in action" >> $LOGFILE 
+		fi
+		echo "`date`: Finished syncing repo  : $p" >> $LOGFILE 
+	else
+		echo "`date`: Repository unavailable : $p" >> $LOGFILE 
+	fi
+done
+
+echo "`date`: Finished sync job" >> $LOGFILE 
+echo "" >> $LOGFILE 
+
+#-------------------------------------------------------------------------
+# Cron tab entries
+#-------------------------------------------------------------------------
+# M  H   DAY  MON  WEEK                 COMMAND
+#-------------------------------------------------------------------------
+# 0  1  */2   *    *    /usr2/c_bjayan/scripts/syncmyrepos > /dev/null
+# 0  1  *     *    *    /usr2/c_bjayan/scripts/syncmyrepos --sync > /dev/null     <<-- sync will happen only if '--sync' is mentioned
+# *  *   *    *    *    /usr2/c_bjayan/scripts/syncmyrepos --test > /dev/null     <<-- Entry for test purpose. executes every min with an echo
+#-------------------------------------------------------------------------
+
+# Use this command to edit crontab entries for a specific user
+# sudo crontab -u c_bjayan -e
+
+# System wide settings:
+# vim /etc/crontab

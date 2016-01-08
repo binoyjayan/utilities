@@ -1,0 +1,53 @@
+#!/bin/bash
+BASESTR=`basename $0`
+if [ "$#" -lt 1 ]
+then
+        echo ""
+        echo "Usage : $BASESTR <kernel build dir>"
+        echo ""
+        echo "Examples:"
+        echo ""
+        echo " $BASESTR linux-3.14_build"
+        echo ""
+        exit
+fi
+
+if [ ! -d "$1" ]
+then
+        echo "The directory '$1' was not found"
+        exit
+fi
+BUILDDIR="$1"
+
+RAMFS=/local/mnt/workspace/images/rootfs/kdev/initrd-arm-msm8916.gz
+KERNELIMG=$BUILDDIR/arch/arm64/boot/Image
+dtb=$BUILDDIR/arch/arm64/boot/dts/qcom/
+dtcpath=$BUILDDIR/scripts/dtc/
+#CMDLINE="root=/dev/disk/by-partlabel/rootfs rw rootwait console=tty0 console=ttyMSM0,115200n8 text androidboot.emmc=true androidboot.serialno=1f9800d3 androidboot.baseband=apq systemd.unit=multi-user.target"
+CMDLINE="root=/dev/ram0 rw rootwait console=ttyMSM0,115200n8"
+OUTIMAGE=boot.img
+DTIMG=dt.img
+BASEADDR=0x80000000
+PAGESIZE=2048
+MKBOOTIMG=mkbootimg
+DTBTOOL=dtbtool
+ 
+rm -f $DTIMG $OUTIMAGE
+ 
+$DTBTOOL -o $DTIMG -s 2048 $dtb
+ 
+echo "Image     : $KERNELIMG"
+echo "Initramfs : $RAMFS"
+echo "Base      : $BASEADDR"
+echo "Cmdline   : $CMDLINE"
+ 
+$MKBOOTIMG \
+    --kernel $KERNELIMG \
+    --ramdisk $RAMFS \
+    --cmdline "$CMDLINE" \
+    --base $BASEADDR \
+    --pagesize $PAGESIZE \
+    --dt $DTIMG \
+    --output $OUTIMAGE
+
+
