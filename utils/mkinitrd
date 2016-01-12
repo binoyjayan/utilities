@@ -1,0 +1,61 @@
+#!/bin/bash
+
+BASESTR=`basename $0`
+ROOTDIR=`readlink -m .`
+ROOTFS_IMG=`readlink -m initrd.img`
+
+if [ "$#" -lt 1 ]
+then
+        echo ""
+        echo "Usage : $BASESTR <initrd dir> [output image name]"
+        echo ""
+        echo "  initrd dir             : Contains initrd files"
+        echo "  output image name      : Name of the output rootfs image in cpio format (optional)"
+        echo "                           Default Value is $ROOTFS_IMG"
+        echo ""
+        echo "Examples:"
+        echo ""
+        echo " $BASESTR initrd $ROOTFS_IMG"
+        echo " $BASESTR initrd"
+        echo ""
+        exit
+fi
+
+echo -n "Validating rootfs directory..."
+if [ ! -d "$1" ]
+then
+        echo "The rootfs directory '$1' was not found"
+        exit
+fi
+
+echo "done."
+
+if [ "$2" != "" ]
+then
+        ROOTFS_IMG=`readlink -m $2`
+fi
+
+echo "Using initrd output image - $ROOTFS_IMG"
+
+ROOTFS_DIR=`readlink -m $1`
+
+STARTDATE=`date`
+STARTSEC=`date +"%s"`
+
+echo "Creating cpio archive..."
+cd $ROOTFS_DIR
+find . | cpio -o -H newc | gzip > "$ROOTFS_IMG"
+cd - &> /dev/null
+echo "done"
+
+ENDSEC=`date +"%s"`
+ENDDATE=`date`
+
+echo "ROOTFS assembling started at $STARTDATE and ended at $STARTDATE"
+TIMEDIFF=`expr $ENDSEC - $STARTSEC`
+MIN=`expr $TIMEDIFF / 60`
+SEC=`expr $TIMEDIFF % 60`
+echo "Elapsed time = $MIN minutes $SEC seconds"
+
+echo "File system image created in $ROOTFS_IMG"
+

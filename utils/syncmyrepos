@@ -4,12 +4,15 @@ LOGFILE=$TMPDIR/syncmyrepos.log
 SYNCLOG=$TMPDIR/reposync.log
 
 REPOS=(
-"/local/mnt/workspace/src/quic/REPO"
+"/local/mnt/workspace/src/quic/M1"
 )
 
 # "/local/mnt/workspace/src/quic/RALL"    <<-- Not updated. Used for test
 # "/local/mnt/workspace/src/quic/REPO"    <<-- Has latest changes. Always synced
 # "/local/mnt/workspace/src/quic/REP0"    <<-- Has oldest change
+# /local/mnt/workspace/src/quic/M1	  <<-- I  M repo
+# /local/mnt/workspace/src/quic/M2	  <<-- II M repo
+# /local/mnt/workspace/src/quic/M3
 
 mkdir -p $TMPDIR
 rm -f $SYNCLOG
@@ -26,7 +29,8 @@ do
 			echo "-----------------------------------------------------------------------" >> $SYNCLOG
 			echo "   $p " >> $SYNCLOG
 			echo "-----------------------------------------------------------------------" >> $SYNCLOG
-			/usr2/c_bjayan/bin/repo sync -j16 &>> $SYNCLOG
+                        /usr2/c_bjayan/bin/repo sync -j16 --no-tags -c -q  &>> $SYNCLOG 
+
 			cd - > /dev/null
 		else
 			echo "`date`: rep sync in action" >> $LOGFILE 
@@ -36,6 +40,8 @@ do
 		echo "`date`: Repository unavailable : $p" >> $LOGFILE 
 	fi
 done
+
+sync
 
 echo "`date`: Finished sync job" >> $LOGFILE 
 echo "" >> $LOGFILE 
@@ -55,3 +61,6 @@ echo "" >> $LOGFILE
 
 # System wide settings:
 # vim /etc/crontab
+
+
+

@@ -34,6 +34,7 @@ else
 fi
 
 RAMFS=/local/mnt/workspace/images/rootfs/kdev/initrd-arm-msm8916.gz
+# RAMFS=/local/mnt/workspace/images/rootfs/kdev/initrd_file.gz
 KERNELIMG=$BUILDDIR/arch/arm64/boot/Image
 DTB=$BUILDDIR/arch/arm64/boot/dts/qcom/
 dtcpath=$BUILDDIR/scripts/dtc/

@@ -4,12 +4,13 @@
 #Uses custom toolchain
 
 BASESTR=`basename $0`
-# DEFCONFIG=versatile_defconfig
-DEFCONFIG=msm8960_adp_defconfig
-THEARCH=arm
-# PREFIX=arm-linux-gnueabi-
-# PREFIX=aarch64-linux-gnu-
-PREFIX=arm-linux-gnueabihf-
+DEFCONFIG=defconfig
+THEARCH=arm64
+IMGNAME=Image
+#PREFIX=arm-linux-gnueabi-
+#PREFIX=arm-linux-gnueabihf-
+PREFIX=aarch64-linux-gnu-
+SRCDIR=linux
 
 if [ "$#" -lt 2 ]
 then
@@ -21,13 +22,9 @@ then
         echo ""
         echo "Examples:"
         echo ""
-        echo " $BASESTR linux-3.14 linux-3.14_build apq8064_adp2es2p5_defconfig"
-        echo " $BASESTR linux-3.14 linux-3.14_build ifc6410_8064_defconfig arm"
-        echo " $BASESTR linux-3.14 linux-3.14_build versatile_defconfig arm"
-        echo " $BASESTR linux-3.14 linux-3.14_build apq8084_defconfig arm"
-        echo " $BASESTR linux-3.14 linux-3.14_build apq8084_defconfig"
-        echo " $BASESTR linux-3.14 linux-3.14_build msm8960_adp_defconfig"
-        echo " $BASESTR linux-3.14 linux-3.14_build full_msm8960-perf_defconfig"
+        echo " $BASESTR $SRCDIR ${SRCDIR}_bld defconfig arm64"
+        echo " $BASESTR $SRCDIR ${SRCDIR}_bld defconfig"
+        echo " $BASESTR $SRCDIR ${SRCDIR}_bld my_defconfig"
         echo ""
         exit
 fi
@@ -75,15 +72,26 @@ echo "Configuring the kernel with the following options:"
 echo "make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX $DEFCONFIG"
 make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX $DEFCONFIG
 
-# Enable this if you want to customize the kernel
-# make O=$BUILDDIR ARCH=arm CROSS_COMPILE=$PREFIX menuconfig
+# Enable this if you want to customize the kernel using prev configuration
+# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX oldconfig
 
-echo "Building kernel.."
-make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX
+# Enable this if you want to customize the kernel using menuconfig
+# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX menuconfig
+# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX savedefconfig
+# cp $BUILDDIR/defconfig arch/$THEARCH/configs/$DEFCONFIG
 
-echo "Installing rootfs at $BUILDDIR/rootfs..."
-mkdir -p $BUILDDIR/rootfs
-make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules_install INSTALL_MOD_PATH=$BUILDDIR/rootfs
+echo "Building kernel [$IMGNAME] .."
+make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX $IMGNAME
+
+# echo "Building modules.."
+# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules
+
+echo "Building DTB.."
+make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX dtbs
+
+# echo "Installing rootfs at $BUILDDIR/rootfs..."
+# mkdir -p $BUILDDIR/rootfs
+# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules_install INSTALL_MOD_PATH=$BUILDDIR/rootfs
 
 # Run the following command to install the kernel
 # sudo make O=$BUILDDIR modules_install install
@@ -97,3 +105,4 @@ TIMEDIFF=`expr $ENDSEC - $STARTSEC`
 MIN=`expr $TIMEDIFF / 60`
 SEC=`expr $TIMEDIFF % 60`
 echo "Elapsed time = $MIN minutes $SEC seconds"
+
