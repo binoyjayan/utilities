@@ -5,11 +5,13 @@
 
 BASESTR=`basename $0`
 DEFCONFIG=defconfig
-THEARCH=arm64
+THEARCH=x86
+# THEARCH=ia64
 IMGNAME=Image
 #PREFIX=arm-linux-gnueabi-
 #PREFIX=arm-linux-gnueabihf-
-PREFIX=aarch64-linux-gnu-
+# PREFIX=aarch64-linux-gnu-
+PREFIX=""
 SRCDIR=linux
 
 if [ "$#" -lt 2 ]
@@ -22,7 +24,7 @@ then
         echo ""
         echo "Examples:"
         echo ""
-        echo " $BASESTR $SRCDIR ${SRCDIR}_bld defconfig arm64"
+        echo " $BASESTR $SRCDIR ${SRCDIR}_bld defconfig x86_64"
         echo " $BASESTR $SRCDIR ${SRCDIR}_bld defconfig"
         echo " $BASESTR $SRCDIR ${SRCDIR}_bld my_defconfig"
         echo ""
@@ -49,9 +51,9 @@ fi
 
 echo "done"
 
-# Use Ubuntu toolchain
-export CC=$PREFIX-gcc
-export CROSS_COMPILE=$PREFIX
+# toolchain
+export CC=$PREFIXgcc
+#export CROSS_COMPILE=$PREFIX
 
 KDIR=`readlink -m $1`
 BUILDDIR=`readlink -m $2`
@@ -69,30 +71,31 @@ echo -n "Cleanup the kernel build tree.."
 echo "done."
 
 echo "Configuring the kernel with the following options:"
-echo "make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX $DEFCONFIG"
-make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX $DEFCONFIG
+echo "make O=$BUILDDIR CROSS_COMPILE=$PREFIX $DEFCONFIG"
+make O=$BUILDDIR CROSS_COMPILE=$PREFIX $DEFCONFIG
 
 # Enable this if you want to customize the kernel using prev configuration
-# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX oldconfig
+# make O=$BUILDDIR CROSS_COMPILE=$PREFIX oldconfig
 
 # Enable this if you want to customize the kernel using menuconfig
-# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX menuconfig
-# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX savedefconfig
+# make O=$BUILDDIR CROSS_COMPILE=$PREFIX menuconfig
+# make O=$BUILDDIR CROSS_COMPILE=$PREFIX savedefconfig
 # cp $BUILDDIR/defconfig arch/$THEARCH/configs/$DEFCONFIG
 # exit
 
 echo "Building kernel [$IMGNAME] .."
-make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX $IMGNAME
+# make O=$BUILDDIR CROSS_COMPILE=$PREFIX $IMGNAME
+make O=$BUILDDIR CROSS_COMPILE=$PREFIX
 
 echo "Building modules.."
-make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules
+make O=$BUILDDIR CROSS_COMPILE=$PREFIX modules
 
-echo "Building DTB.."
-make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX dtbs
+# echo "Building DTB.."
+# make O=$BUILDDIR CROSS_COMPILE=$PREFIX dtbs
 
 # echo "Installing rootfs at $BUILDDIR/rootfs..."
 # mkdir -p $BUILDDIR/rootfs
-# make O=$BUILDDIR ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules_install INSTALL_MOD_PATH=$BUILDDIR/rootfs
+# make O=$BUILDDIR CROSS_COMPILE=$PREFIX modules_install INSTALL_MOD_PATH=$BUILDDIR/rootfs
 
 # Run the following command to install the kernel
 # sudo make O=$BUILDDIR modules_install install
