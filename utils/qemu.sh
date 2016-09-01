@@ -26,7 +26,7 @@ qemu-system-x86_64 \
  -redir tcp:2222::22 \
  -redir tcp:3333::3333 \
  -smp cores=2 \
- -serial stdio \
+ -nographic \
  | tee serial.log
 
 # -serial stdio \
