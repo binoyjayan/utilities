@@ -7,8 +7,10 @@ BASESTR=`basename $0`
 ROOTDIR=`readlink -m .`
 ROOTFS_IMG=$ROOTDIR/rootfs.img
 TARTMP=/tmp/__tar_temp_dir__
+# Block size of 4 KiB each
+BLKCOUNT=128000
 #BLKCOUNT=76800
-BLKCOUNT=38400
+#BLKCOUNT=38400
 
 if [ "$#" -lt 2 ]
 then
@@ -65,7 +67,8 @@ MODULES_DIR=`readlink -m $2`
 STARTDATE=`date`
 STARTSEC=`date +"%s"`
 
-echo "Creating binary file $ROOTFS_IMG of 300 MiB..."
+RSIZE=`expr $BLKCOUNT \* 4096`
+echo "Creating binary file $ROOTFS_IMG of $RSIZE MiB..."
 rm -f $ROOTFS_IMG
 dd if=/dev/zero of=$ROOTFS_IMG bs=4096 count=$BLKCOUNT > /dev/null
 echo "done."
@@ -96,6 +99,7 @@ cp -a $MODULES_DIR/* $TARTMP/lib/modules/
 echo "done."
 
 echo -n "Performing cleanup..."
+sleep 2
 sudo umount $TARTMP
 echo "done"
 
