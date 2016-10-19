@@ -1,0 +1,183 @@
+#!/bin/bash
+
+BASESTR=`basename $0`
+SRCDIR=linux
+THEARCH=arm64
+#THEARCH=x86
+BUILDDIR=${SRCDIR}_${THEARCH}
+DEFCONFIG=saved_defconfig
+IMGNAME=Image
+MODDIR=$BUILDDIR/MODULES
+MODFLAG=false
+DTBFLAG=false
+KCONFIGFLAG=false
+OCONFIGFLAG=false
+#PREFIX=arm-linux-gnueabi-
+#PREFIX=arm-linux-gnueabihf-
+PREFIX=aarch64-linux-gnu-
+ECHO=""
+
+usage()
+{
+      echo ""
+      echo "Usage: $BASESTR <option> [Parameter]"
+      echo ""
+      echo "Options"
+      echo ""
+      echo "-s <src>        : source dir (linux,staging)    Default: $SRCDIR"
+      echo "-b <builddir>   : Build dir (linux_arm64, ...)  Default: $BUILDDIR"
+      echo "-a <arch>       : Architechure (arm,arm64)      Default: $THEARCH"
+      echo "-d <defconfig>  : Defconfig file                Default: $DEFCONFIG"
+      echo "-i <img>        : Image name (zImage/Image)     Default: $IMGNAME"
+      echo "-m [outdir]     : modules dir - builddir/outdir Default: $MODDIR"
+      echo "-t              : build DTBs too                Default: $DTBFLAG"
+      echo "-c              : Configure kernel [menuconfig] Default: $KCONFIGFLAG"
+      echo "-o              : Configure kernel [oldconfig]  Default: $OCONFIGFLAG"
+      echo "-p <prefix>     : Use prefix.                   Default: $PREFIX"
+      echo "-g              : Dont build. Just echo cmds"
+      echo "-h              : Display usage"
+      echo ""
+}
+
+echo ""
+
+found=0
+while getopts "s:b:a:d:i:mtcop:gh" opt; do
+  found=1
+  case $opt in
+    s)
+        SRCDIR=$OPTARG
+        ;;
+    b)
+        BUILDDIR=$OPTARG
+        ;;
+    a)
+        THEARCH=$OPTARG
+        ;;
+    d)
+        DEFCONFIG=$OPTARG
+        ;;
+    i)
+        IMGNAME=$OPTARG
+        ;;
+    m)
+	if [ "$OPTARG" != "" ]; then
+	        MODDIR=$BUILDDIR/$OPTARG
+	fi
+	MODFLAG=true
+        ;;
+    t)
+        DTBFLAG=true
+        ;;
+    c)
+        KCONFIGFLAG=true
+        ;;
+    o)
+        OCONFIGFLAG=true
+        ;;
+    p)
+        PREFIX=$OPTARG
+        ;;
+    g)
+        ECHO=echo
+        ;;
+    h)
+        usage
+	exit
+        ;;
+    \?)
+        echo ""
+        echo "Invalid/insufficient arguments mentioned!"
+        usage
+        ;;
+  esac
+done
+
+SRCPATH=`readlink -m $SRCDIR`
+BUILDPATH=`readlink -m $BUILDDIR`
+MODPATH=`readlink -m $MODDIR`
+export CROSS_COMPILE=$PREFIX
+
+STARTDATE=`date`
+STARTSEC=`date +"%s"`
+
+if [ "$ECHO" != "" ]; then
+	echo "Build configuration"
+	echo ""
+        echo "SRCDIR = $SRCDIR"
+        echo "SRCPATH = $SRCPATH"
+        echo "BUILDDIR = $BUILDDIR"
+        echo "BUILDPATH = $BUILDPATH"
+        echo "THEARCH = $THEARCH"
+        echo "DEFCONFIG = $DEFCONFIG"
+        echo "IMGNAME = $IMGNAME"
+        echo "MODFLAG = $MODFLAG"
+        echo "MODDIR = $MODDIR"
+        echo "MODPATH = $MODPATH"
+        echo "DTBFLAG = $DTBFLAG"
+        echo "KCONFIGFLAG = $KCONFIGFLAG"
+        echo "OCONFIGFLAG = $OCONFIGFLAG"
+        echo "PREFIX = $PREFIX"
+	echo ""
+fi
+
+
+mkdir -p $SRCPATH
+mkdir -p $BUILDPATH
+mkdir -p $MODPATH
+
+cd $SRCPATH
+echo "Configuring the kernel..."
+
+if [ "$OCONFIGFLAG" == "true" ]; then
+	# Customize the kernel using oldconfig
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX oldconfig
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX savedefconfig
+	${ECHO} cp $BUILDPATH/defconfig arch/$THEARCH/configs/$DEFCONFIG
+	exit
+elif [ "$KCONFIGFLAG" == "true" ]; then
+	# Customize the kernel using menuconfig
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX $DEFCONFIG
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX menuconfig
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX savedefconfig
+	${ECHO} cp $BUILDPATH/defconfig arch/$THEARCH/configs/$DEFCONFIG
+	exit
+else
+	# Customize the kernel using defconfig
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX $DEFCONFIG
+fi
+echo "done"
+echo ""
+
+echo "Building kernel [$IMGNAME]..."
+${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX $IMGNAME
+echo "done"
+echo ""
+
+if [ "$DTBFLAG" == "true" ]; then
+	echo "Building DTB.."
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX dtbs
+	echo "done"
+	echo ""
+fi
+
+if [ "$MODFLAG" == "true" ]; then
+	echo "Building modules.."
+	mkdir -p $MODPATH
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules_install INSTALL_MOD_PATH=$MODPATH
+	echo "done"
+	echo ""
+fi
+
+cd - &> /dev/null
+ENDSEC=`date +"%s"`
+ENDDATE=`date`
+
+# echo "Build started at $STARTDATE and ended at $STARTDATE"
+TIMEDIFF=`expr $ENDSEC - $STARTSEC`
+MIN=`expr $TIMEDIFF / 60`
+SEC=`expr $TIMEDIFF % 60`
+echo "Elapsed time = $MIN minutes $SEC seconds"
+echo ""
+
