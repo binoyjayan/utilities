@@ -50,6 +50,7 @@ while getopts "s:b:a:d:i:mtcop:gh" opt; do
         ;;
     b)
         BUILDDIR=$OPTARG
+	BUILDDIRFLAG=true
         ;;
     a)
         THEARCH=$OPTARG
@@ -63,6 +64,7 @@ while getopts "s:b:a:d:i:mtcop:gh" opt; do
     m)
 	if [ "$OPTARG" != "" ]; then
 	        MODDIR=$BUILDDIR/$OPTARG
+		MODDIRFLAG=true
 	fi
 	MODFLAG=true
         ;;
@@ -93,10 +95,27 @@ while getopts "s:b:a:d:i:mtcop:gh" opt; do
   esac
 done
 
+# Adjust build dir after arch change
+if [ "$BUILDDIRFLAG" != "true" ]; then
+	BUILDDIR=${SRCDIR}_${THEARCH}
+fi
+
+if [ "$MODDIRFLAG" != "true" ]; then
+	MODDIR=$BUILDDIR/MODULES
+fi
+
 SRCPATH=`readlink -m $SRCDIR`
 BUILDPATH=`readlink -m $BUILDDIR`
 MODPATH=`readlink -m $MODDIR`
-export CROSS_COMPILE=$PREFIX
+
+if [ "$THEARCH" == "x86" ]; then
+	PREFIX=""
+fi
+if [ "$THEARCH" == "arm64" ]; then
+	IMGNAME="Image"
+else
+	IMGNAME="bzImage"
+fi
 
 STARTDATE=`date`
 STARTSEC=`date +"%s"`
