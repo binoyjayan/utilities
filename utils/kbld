@@ -27,7 +27,7 @@ usage()
       echo ""
       echo "-s <src>        : source dir (linux,staging)    Default: $SRCDIR"
       echo "-b <builddir>   : Build dir (linux_arm64, ...)  Default: $BUILDDIR"
-      echo "-a <arch>       : Architechure (arm,arm64)      Default: $THEARCH"
+      echo "-a <arch>       : Architecture (arm,arm64)      Default: $THEARCH"
       echo "-d <defconfig>  : Defconfig file                Default: $DEFCONFIG"
       echo "-i <img>        : Image name (zImage/Image)     Default: $IMGNAME"
       echo "-m [outdir]     : modules dir - builddir/outdir Default: $MODDIR"
@@ -68,24 +68,48 @@ adjust_dirs()
 	fi
 }
 
+validate_dirs()
+{
+        # Validate that all files and dirs exist
+	if [ "$HELPFLAG" != "true" ]; then
+		found=1
+	        if [ ! -d "$SRCPATH" ]; then
+			echo "Could not find source dir $SRCDIR. Use -s to specify source directory"
+			found=0
+	        fi
+
+		DEFCON=$SRCPATH/arch/$THEARCH/configs/$DEFCONFIG
+	        if [ ! -f "$DEFCON" ]; then
+			echo "Could not find defconfig file $DEFCON. Use -d to specify it (only the name)"
+			found=0
+		fi
+
+	        if [ $found -eq 0 ]; then
+			echo "Type the command $BASESTR -h to view detailed usage"
+			echo ""
+			exit
+	        fi
+	fi
+}
+
 display_config()
 {
 	echo "Build configuration"
 	echo ""
-        echo "SRCDIR = $SRCDIR"
-        echo "SRCPATH = $SRCPATH"
-        echo "BUILDDIR = $BUILDDIR"
-        echo "BUILDPATH = $BUILDPATH"
-        echo "THEARCH = $THEARCH"
-        echo "DEFCONFIG = $DEFCONFIG"
-        echo "IMGNAME = $IMGNAME"
-        echo "MODFLAG = $MODFLAG"
-        echo "MODDIR = $MODDIR"
-        echo "MODPATH = $MODPATH"
-        echo "DTBFLAG = $DTBFLAG"
+        echo "SRCDIR      = $SRCDIR"
+        echo "SRCPATH     = $SRCPATH"
+        echo "BUILDDIR    = $BUILDDIR"
+        echo "BUILDPATH   = $BUILDPATH"
+        echo "THEARCH     = $THEARCH"
+        echo "DEFCONFIG   = $DEFCONFIG"
+        echo "IMGNAME     = $IMGNAME"
+        echo "MODFLAG     = $MODFLAG"
+        echo "MODDIR      = $MODDIR"
+        echo "MODPATH     = $MODPATH"
+        echo "DTBFLAG     = $DTBFLAG"
         echo "KCONFIGFLAG = $KCONFIGFLAG"
         echo "OCONFIGFLAG = $OCONFIGFLAG"
-        echo "PREFIX = $PREFIX"
+        echo "PREFIX      = $PREFIX"
 	echo ""
 }
 
@@ -212,6 +236,7 @@ while getopts "s:b:a:d:i:mtcop:gh" opt; do
 done
 
 adjust_dirs
+validate_dirs
 
 if [ "$HELPFLAG" == "true" ]; then
 	usage
