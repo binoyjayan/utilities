@@ -21,7 +21,7 @@ ECHO=""
 usage()
 {
       echo ""
-      echo "Usage: $BASESTR <option> [Parameter]"
+      echo "Usage: $BASESTR <option> [parameter] [option2] [param2]..."
       echo ""
       echo "Options"
       echo ""
@@ -40,6 +40,13 @@ usage()
       echo ""
       echo "NB: These defaults is for the selected architecture selected"
       echo "    They may change depending on the architecture chosen"
+      echo ""
+      echo "EXamples:"
+      echo ""
+      echo "$BASESTR -a"
+      echo "$BASESTR -a x86"
+      echo "$BASESTR -a x86   -s linux-stable -d x86_64_defconfig"
+      echo "$BASESTR -a arm64 -s linux_src -d i386_defconfig -b output"
       echo ""
 }
 
