@@ -1,0 +1,239 @@
+#!/bin/bash
+
+BASESTR=`basename $0`
+MODFLAG=false
+HELPFLAG=false
+ADDFLAG=false
+TARTMP=/tmp/__tar_temp_dir__
+BLKCOUNT=128000
+ECHO=""
+VANILLAPATH="/local/mnt/workspace/images/rootfs/x86_64/rootfs.tar.bz2"
+MODPATH="/local/mnt/workspace/src/korg/linux_x86/MODULES/lib/modules"
+declare -a dirs
+declare -a dirpaths
+dindex=0
+
+usage()
+{
+      echo ""
+      echo "Usage: $BASESTR <option> [parameter] [option2] [param2]..."
+      echo ""
+      echo "Options"
+      echo ""
+      echo "-v <vanilla img> : Vanilla rootfs image in *.tar.bz2 format"
+      echo "-m <modulesdir>  : optional modules dir"
+      echo "-o <output img>  : Output image name (ext4)"
+      echo "-a <dir>         : Additional directory contents to include in rootfs"
+      echo "-h               : Display usage"
+      echo ""
+      echo "EXamples:"
+      echo ""
+      echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4"
+      echo "$BASESTR -v rootfs.tar.bz2 -m kernel_build/lib/modules -o rootfs.ext4"
+      echo "$BASESTR -v rootfs.tar.bz2 -a crypt -o rootfs.ext4"
+      echo ""
+}
+
+validate()
+{
+	if [ "$VANILLAFLAG" == "true" ]
+	then
+		VANILLAPATH=`readlink -m $VANILLAFILE`
+	fi
+
+	if [ ! -f "$VANILLAPATH" ]
+	then
+		echo "The rootfs vanilla image '$VANILLAPATH' not found"
+		echo "For help, $BASESTR -h"
+		exit
+	else
+		echo "Using rootfs vanilla image '$VANILLAPATH'"
+	fi
+
+	# Optional modules
+	if [ "$MODFLAG" == "true" ]
+	then
+		echo "Adding kernel modules directory..."
+		# echo "MODPATH=readlink -m $MODDIR"
+		MODPATH=`readlink -m $MODDIR`
+
+		if [ ! -d "$MODPATH" ]
+		then
+			echo "The modules directory '$MODPATH' not found"
+			echo "For help, $BASESTR -h"
+			exit
+		else
+			BASE=`basename $MODPATH`
+			if [ "$BASE" == "modules" ]
+			then
+				echo "Using modules directory '$MODPATH'"
+			else
+				echo "The directory name should be 'modules'"
+				echo "It is output of make modules_install and should be a path to the lib/modules directory"
+				exit
+			fi
+		fi
+	fi
+
+	if [ "$ADDFLAG" == "true" ]
+	then
+		for x in "${dirs[@]}"
+		do
+			ADDPATH=`readlink -m $x`
+			if [ ! -d "$ADDPATH" ]
+			then
+				echo "Directory $ADDPATH not found"
+				echo "For help, $BASESTR -h"
+				exit
+			fi
+			echo "Adding directory $ADDPATH"
+		done
+	fi
+
+	if [ "$IMGFILE" == "" ]
+	then
+		echo "Please mention output image name"
+		echo "For help, $BASESTR -h"
+	else
+		IMGPATH=`readlink -m $IMGFILE`
+		echo "Using output image '$IMGFILE'"
+	fi
+}
+
+build_rootfs()
+{
+	STARTDATE=`date`
+	STARTSEC=`date +"%s"`
+
+	# echo "Enter password for authentication"
+	sudo echo "Authentication successful!" 2> /dev/null
+	# echo "Exit code : $?"
+	if [ "$?" != "0" ] ; then
+		echo "Authentication Failed. Try again"
+	fi
+
+	RSIZE=`expr $BLKCOUNT \* 4096`
+	echo "Creating binary file $IMGFILE of $RSIZE MiB..."
+	rm -f $IMGPATH
+	dd if=/dev/zero of=$IMGPATH bs=4096 count=$BLKCOUNT > /dev/null
+	if [ "$?" == "0" ] ; then
+		echo "done."
+	else
+		echo "Failed to create a binary image!"
+		exit
+	fi
+
+	echo "Format the image $IMGFILE with ext4 file system..."
+	echo y | mkfs.ext4 $IMGFILE -L SYSTEM > /dev/null
+	if [ "$?" == "0" ] ; then
+		echo "done."
+	else
+		echo "Failed to format!"
+		exit
+	fi
+
+	echo -n "Creating tmp directory $TARTMP to mount fs image..."
+	mkdir -p $TARTMP
+	if [ "$?" == "0" ] ; then
+		echo "done."
+	else
+		echo "Failed!"
+		exit
+	fi
+
+	echo -n "Mounting the file system image $IMGFILE..."
+	sudo mount $IMGPATH $TARTMP
+	if [ "$?" == "0" ] ; then
+		echo "done."
+	else
+		echo "Failed to mount!"
+		exit
+	fi
+
+	echo -n "Extracting vanilla rootfs into temporary directory..."
+	rm -rf $TARTMP/*
+	tar xf $VANILLAPATH -C $TARTMP
+	cd $TARTMP
+	ln $TARTMP/sbin/init ./
+	cd - &> /dev/null
+	echo "done."
+
+	if [ -d "$MODPATH" ]
+	then
+		echo -n "Copying the modules to rootfs..."
+		rm -rf $TARTMP/lib/modules/*
+		mkdir -p $TARTMP/lib/modules
+		cp -a $MODPATH/* $TARTMP/lib/modules/
+		echo "done."
+	fi
+
+	echo -n "Performing cleanup..."
+	sleep 2
+	sudo umount $TARTMP
+	if [ "$?" == "0" ] ; then
+		echo "done."
+	else
+		echo "Failed to unmount!"
+		exit
+	fi
+
+	ENDSEC=`date +"%s"`
+	ENDDATE=`date`
+
+	echo "Rootfs assembling started at $STARTDATE and ended at $STARTDATE"
+	TIMEDIFF=`expr $ENDSEC - $STARTSEC`
+	MIN=`expr $TIMEDIFF / 60`
+	SEC=`expr $TIMEDIFF % 60`
+	echo "Elapsed time = $MIN minutes $SEC seconds"
+	echo ""
+	echo "File system image created in $IMGPATH"
+	echo ""
+}
+
+
+# Main script execution
+echo ""
+
+found=0
+while getopts "v:m:a:o:h" opt; do
+  found=1
+  case $opt in
+    v)
+        VANILLAFILE=$OPTARG
+        VANILLAFLAG=true
+	;;
+    m)
+	MODDIR=$OPTARG
+	MODFLAG=true
+	;;
+    o)
+        IMGFILE=$OPTARG
+	;;
+    a)
+	dirs[$dindex]="$OPTARG"
+	dindex=`expr $dindex + 1`
+	ADDFLAG=true
+	;;
+    h)
+	HELPFLAG=true
+	;;
+    \?)
+        echo ""
+        echo "Invalid/insufficient arguments mentioned!"
+        usage
+	exit
+	;;
+  esac
+done
+
+if [ "$HELPFLAG" == "true" ]; then
+	usage
+	exit
+fi
+
+validate
+echo ""
+build_rootfs
+echo ""
+
+
