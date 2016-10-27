@@ -1,38 +1,38 @@
 #!/bin/bash
 
-KLOC="/local/mnt/workspace/src/korg/linux_QEmu"
+KLOC="/local/mnt/workspace/src/korg/linux_x86"
 #RLOC="/local/mnt/workspace/software/linux/buildroot/buildroot-2016.05/output/images"
 RLOC="/local/mnt/workspace/images/rootfs/x86_64"
 
 #KERNEL="arch/x86/boot/bzImage"
 KERNEL="arch/x86/boot/bzImage"
-#DISK="hdd.img"
-DISK="rootfs.ext2"
-RDEV="/dev/hda"
+# DISK="rootfs.ext2"
+DISKA="rootfs.ext4"
+DISKB="HDB.ext4"
+RDEV="/dev/sda"
 
 echo "KERNEL : $KLOC/$KERNEL"
-echo "ROOTFS : $RLOC/$DISK"
+echo "ROOTFS : $RLOC/$DISKA"
+echo "DISK2  : $RLOC/$DISKB"
 
 qemu-system-x86_64 \
  -kernel $KLOC/$KERNEL \
- -hda    $RLOC/$DISK \
+ -hda    $RLOC/$DISKA \
+ -hdb    $RLOC/$DISKB \
  -boot c \
  -m 256 \
- -append "root=$RDEV rw console=ttyS0 root=/dev/sda" \
+ -append "console=ttyS0 root=$RDEV rw rootfstype=ext4 ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/init" \
  -localtime \
  -no-reboot \
  -name rtlinux \
- -net nic -net user \
- -redir tcp:2222::22 \
- -redir tcp:3333::3333 \
+ -netdev user,id=network0 -device e1000,netdev=network0 \
  -smp cores=2 \
  -nographic \
  | tee serial.log
 
+# -append "console=ttyS0 root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs rw ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/init" \
+# -append "console=ttyS0 root=$RDEV rw rootfstype=ext4" \
+# -append "console=ttyS0 root=$RDEV rw rootfstype=ext4 ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/init" \
 # -serial stdio \
-# -nographic \
-# -m <ramsize>
-# -hda $RLOC/$DISK \
-
-# find . | cpio -o -H newc | gzip > ../rootfs.img
-# find . | cpio --create --format=newc > ../rootfs.img
+# NFS mount
+# mount 10.0.2.2:/srv/nfs /mnt
