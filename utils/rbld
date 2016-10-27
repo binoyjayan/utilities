@@ -30,6 +30,7 @@ usage()
       echo ""
       echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4"
       echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4 -m kernel_build/lib/modules"
+      echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4 -a ROOTFS_ADDITIONS"
       echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4 -a cryptsetup_install"
       echo ""
 }
