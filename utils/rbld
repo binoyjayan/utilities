@@ -29,8 +29,8 @@ usage()
       echo "EXamples:"
       echo ""
       echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4"
-      echo "$BASESTR -v rootfs.tar.bz2 -m kernel_build/lib/modules -o rootfs.ext4"
-      echo "$BASESTR -v rootfs.tar.bz2 -a crypt -o rootfs.ext4"
+      echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4 -m kernel_build/lib/modules"
+      echo "$BASESTR -v rootfs.tar.bz2 -o rootfs.ext4 -a cryptsetup_install"
       echo ""
 }
 
@@ -57,36 +57,43 @@ validate()
 		# echo "MODPATH=readlink -m $MODDIR"
 		MODPATH=`readlink -m $MODDIR`
 
-		if [ ! -d "$MODPATH" ]
+		if [ -d "$MODPATH" ]
 		then
-			echo "The modules directory '$MODPATH' not found"
-			echo "For help, $BASESTR -h"
-			exit
-		else
 			BASE=`basename $MODPATH`
-			if [ "$BASE" == "modules" ]
+			if [ "$BASE" != "modules" ]
 			then
-				echo "Using modules directory '$MODPATH'"
-			else
 				echo "The directory name should be 'modules'"
 				echo "It is output of make modules_install and should be a path to the lib/modules directory"
 				exit
 			fi
+		else
+			echo "The modules directory '$MODPATH' not found"
+			echo "For help, $BASESTR -h"
+			exit
 		fi
+	fi
+
+	if [ -d "$MODPATH" ]
+	then
+		echo "Using modules directory '$MODPATH'"
 	fi
 
 	if [ "$ADDFLAG" == "true" ]
 	then
+		i=0
 		for x in "${dirs[@]}"
 		do
 			ADDPATH=`readlink -m $x`
-			if [ ! -d "$ADDPATH" ]
+			if [ -d "$ADDPATH" ]
 			then
+				echo "Adding directory $ADDPATH"
+				dirpaths[$i]="$ADDPATH"
+				i=`expr $i + 1`
+			else
 				echo "Directory $ADDPATH not found"
 				echo "For help, $BASESTR -h"
 				exit
 			fi
-			echo "Adding directory $ADDPATH"
 		done
 	fi
 
@@ -98,6 +105,7 @@ validate()
 		IMGPATH=`readlink -m $IMGFILE`
 		echo "Using output image '$IMGFILE'"
 	fi
+	echo ""
 }
 
 build_rootfs()
@@ -167,6 +175,18 @@ build_rootfs()
 		echo "done."
 	fi
 
+	if [ "$ADDFLAG" == "true" ]
+	then
+		echo "Copying additional files to rootfs..."
+		for x in "${dirpaths[@]}"
+		do
+			echo -n "Copying directory $x..."
+			cp -a $x/* $TARTMP/
+			echo "done."
+		done
+		echo "done."
+	fi
+
 	echo -n "Performing cleanup..."
 	sleep 2
 	sudo umount $TARTMP
@@ -232,8 +252,6 @@ if [ "$HELPFLAG" == "true" ]; then
 fi
 
 validate
-echo ""
 build_rootfs
-echo ""
 
 
