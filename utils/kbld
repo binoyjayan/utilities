@@ -1,11 +1,17 @@
 #!/bin/bash
 
+# Choose compiler path
+# export PATH=$PATH:/prj/l4linux/arm64-linaro-compiler/gcc-linaro-aarch64-linux-gnu-4.8-2013.09_linux/bin
+# export PATH=$PATH:/pkg/asw/compilers/gnu/linaro-toolchain/4.9/bin
+# export PATH=$PATH:/pkg/asw/compilers/gnu/linaro-toolchain/5.1/bin
+# export PATH=$PATH:/pkg/asw/compilers/gnu/linaro-toolchain/.4.9-2014.06-02_linux-x86/bin
+
 BASESTR=`basename $0`
 SRCDIR=linux
 THEARCH=arm64
 #THEARCH=x86
 BUILDDIR=${SRCDIR}_${THEARCH}
-DEFCONFIG=saved_defconfig
+DEFCONFIG=defconfig
 IMGNAME=Image
 MODDIR=$BUILDDIR/MODULES
 MODFLAG=false
