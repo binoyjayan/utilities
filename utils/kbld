@@ -1,11 +1,39 @@
 #!/bin/bash
+###########################################################################
+#                                                                         #
+#     KBLD : Kernel image builder                                         #
+#                                                                         #
+#     Author: Binoy Jayan                                                 #
+#     Date Written : October 19 2016                                      #
+#                                                                         #
+#     Description                                                         #
+#     ------------                                                        #
+#     This script helps build the linux kernel source.                    #
+#                                                                         #
+#     Features:                                                           #
+#        Choose a build directory                                         #
+#        Architecture selection                                           #
+#        Choose toolchain prefix                                          #
+#        Configure kernel[menuconfig,savedefconfig,..]                    #
+#        Choose to build modules, dtb optionally                          #
+#        Debug the build. only display commands                           #
+#                                                                         #
+#     By default, the source 'linux' is built with arm64 config           #
+#     with defconfig 'defconfg'                                           #
+#                                                                         #
+#     For options run the following command                               #
+#                                                                         #
+#        kbld -h                                                          #
+#                                                                         #
+###########################################################################
 
-# Choose compiler path
+# Set compiler path
 # export PATH=$PATH:/prj/l4linux/arm64-linaro-compiler/gcc-linaro-aarch64-linux-gnu-4.8-2013.09_linux/bin
 # export PATH=$PATH:/pkg/asw/compilers/gnu/linaro-toolchain/4.9/bin
 # export PATH=$PATH:/pkg/asw/compilers/gnu/linaro-toolchain/5.1/bin
 # export PATH=$PATH:/pkg/asw/compilers/gnu/linaro-toolchain/.4.9-2014.06-02_linux-x86/bin
 
+# Default options; Can be changed at run time using cmdline options
 BASESTR=`basename $0`
 SRCDIR=linux
 THEARCH=arm64
