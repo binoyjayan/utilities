@@ -4,6 +4,7 @@ BASESTR=`basename $0`
 MODFLAG=false
 HELPFLAG=false
 ADDFLAG=false
+SKIPFLAG=false
 TARTMP=/tmp/__tar_temp_dir__
 BLKCOUNT=128000
 ECHO=""
@@ -24,6 +25,7 @@ usage()
       echo "-m <modulesdir>  : optional modules dir"
       echo "-o <output img>  : Output image name (ext4)"
       echo "-a <dir>         : Additional directory contents to include in rootfs"
+      echo "-s               : Skip creation of rootsfs. Only add files."
       echo "-h               : Display usage"
       echo ""
       echo "EXamples:"
@@ -102,6 +104,7 @@ validate()
 	then
 		echo "Please mention output image name"
 		echo "For help, $BASESTR -h"
+		exit
 	else
 		IMGPATH=`readlink -m $IMGFILE`
 		echo "Using output image '$IMGFILE'"
@@ -122,23 +125,28 @@ build_rootfs()
 	fi
 
 	RSIZE=`expr $BLKCOUNT \* 4096`
-	echo "Creating binary file $IMGFILE of $RSIZE MiB..."
-	rm -f $IMGPATH
-	dd if=/dev/zero of=$IMGPATH bs=4096 count=$BLKCOUNT > /dev/null
-	if [ "$?" == "0" ] ; then
-		echo "done."
+	if [ "$SKIPFLAG" == "true" ]
+	then
+		echo "Skipping rootfs creation and formatting $IMGFILE!"
 	else
-		echo "Failed to create a binary image!"
-		exit
-	fi
+		echo "Creating binary file $IMGFILE of $RSIZE MiB..."
+		# rm -f $IMGPATH
+		dd if=/dev/zero of=$IMGPATH bs=4096 count=$BLKCOUNT > /dev/null
+		if [ "$?" == "0" ] ; then
+			echo "done."
+		else
+			echo "Failed to create a binary image!"
+			exit
+		fi
 
-	echo "Format the image $IMGFILE with ext4 file system..."
-	echo y | mkfs.ext4 $IMGFILE -L SYSTEM > /dev/null
-	if [ "$?" == "0" ] ; then
-		echo "done."
-	else
-		echo "Failed to format!"
-		exit
+		echo "Format the image $IMGFILE with ext4 file system..."
+		echo y | mkfs.ext4 $IMGFILE -L SYSTEM > /dev/null
+		if [ "$?" == "0" ] ; then
+			echo "done."
+		else
+			echo "Failed to format!"
+			exit
+		fi
 	fi
 
 	echo -n "Creating tmp directory $TARTMP to mount fs image..."
@@ -159,13 +167,18 @@ build_rootfs()
 		exit
 	fi
 
-	echo -n "Extracting vanilla rootfs into temporary directory..."
-	rm -rf $TARTMP/*
-	tar xf $VANILLAPATH -C $TARTMP
-	cd $TARTMP
-	ln $TARTMP/sbin/init ./
-	cd - &> /dev/null
-	echo "done."
+	if [ "$SKIPFLAG" == "true" ]
+	then
+		echo "Skipping extracting vanilla rootfs !"
+	else
+		echo -n "Extracting vanilla rootfs into temporary directory..."
+		rm -rf $TARTMP/*
+		tar xf $VANILLAPATH -C $TARTMP
+		cd $TARTMP
+		ln $TARTMP/sbin/init ./
+		cd - &> /dev/null
+		echo "done."
+	fi
 
 	if [ -d "$MODPATH" ]
 	then
@@ -216,7 +229,7 @@ build_rootfs()
 echo ""
 
 found=0
-while getopts "v:m:a:o:h" opt; do
+while getopts "v:m:a:o:sh" opt; do
   found=1
   case $opt in
     v)
@@ -234,6 +247,9 @@ while getopts "v:m:a:o:h" opt; do
 	dirs[$dindex]="$OPTARG"
 	dindex=`expr $dindex + 1`
 	ADDFLAG=true
+	;;
+    s)
+	SKIPFLAG=true
 	;;
     h)
 	HELPFLAG=true
