@@ -50,6 +50,7 @@ HELPFLAG=false
 #PREFIX=arm-linux-gnueabi-
 #PREFIX=arm-linux-gnueabihf-
 PREFIX=aarch64-linux-gnu-
+JOBS=1
 ECHO=""
 
 usage()
@@ -69,6 +70,7 @@ usage()
       echo "-c              : Configure kernel [menuconfig] Default: $KCONFIGFLAG"
       echo "-o              : Configure kernel [oldconfig]  Default: $OCONFIGFLAG"
       echo "-p <prefix>     : Use prefix.                   Default: $PREFIX"
+      echo "-j n            : Spawn 'n' jobs to build       Default: $JOBS"
       echo "-g              : Dont build. Just echo cmds"
       echo "-h              : Display usage"
       echo ""
@@ -77,7 +79,7 @@ usage()
       echo ""
       echo "EXamples:"
       echo ""
-      echo "$BASESTR -a"
+      echo "$BASESTR"
       echo "$BASESTR -a x86"
       echo "$BASESTR -a x86   -s linux-stable -d x86_64_defconfig"
       echo "$BASESTR -a arm64 -s linux_src -d i386_defconfig -b output"
@@ -187,13 +189,13 @@ build_kernel()
 	echo ""
 
 	echo "Building kernel [$IMGNAME]..."
-	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX $IMGNAME
+	${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX $IMGNAME -j $JOBS
 	echo "done"
 	echo ""
 
 	if [ "$DTBFLAG" == "true" ]; then
 		echo "Building DTB.."
-		${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX dtbs
+		${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX dtbs -j $JOBS
 		echo "done"
 		echo ""
 	fi
@@ -201,7 +203,7 @@ build_kernel()
 	if [ "$MODFLAG" == "true" ]; then
 		echo "Building modules.."
 		mkdir -p $MODPATH
-		${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules
+		${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules -j $JOBS
 		${ECHO} make O=$BUILDPATH ARCH=$THEARCH CROSS_COMPILE=$PREFIX modules_install INSTALL_MOD_PATH=$MODPATH
 		echo "done"
 		echo ""
@@ -224,7 +226,7 @@ build_kernel()
 echo ""
 
 found=0
-while getopts "s:b:a:d:i:mtcop:gh" opt; do
+while getopts "s:b:a:d:i:mtcop:j:gh" opt; do
   found=1
   case $opt in
     s)
@@ -261,6 +263,9 @@ while getopts "s:b:a:d:i:mtcop:gh" opt; do
         ;;
     p)
         PREFIX=$OPTARG
+        ;;
+    j)
+        JOBS=$OPTARG
         ;;
     g)
         ECHO=echo
