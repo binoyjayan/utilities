@@ -12,12 +12,6 @@ K=$KLOC/$KERNEL
 R=$RLOC/$DISKA
 D=$RLOC/$DISKB
 
-# v0: No dm-crypt changes; only dbg msgs
-# v1: geniv changes; smaller blocks
-# v2: geniv changes; larger  blocks
-
-#K=/local/mnt/workspace/images/dm/bzImages/bzImage.v0_2
-
 echo ""
 echo "KERNEL : $K"
 echo "ROOTFS : $R"
