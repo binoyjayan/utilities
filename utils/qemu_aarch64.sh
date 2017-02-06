@@ -1,5 +1,6 @@
 #!/bin/bash
 
+DBG=""
 KLOC="/local/mnt/workspace/src/korg/linux_arm64"
 RLOC="/local/mnt/workspace/images/rootfs/arm64"
 
@@ -17,6 +18,10 @@ echo "ROOTFS : $R"
 echo "DISK2  : $D"
 echo ""
 
+if [ "$1" == '-g' ]
+then
+	DBG="-s -S"
+fi
 
 qemu-system-aarch64 \
  -machine virt \
@@ -26,13 +31,13 @@ qemu-system-aarch64 \
  -smp 1 -m 2048 \
  -kernel $K \
  -append "console=ttyAMA0 root=/dev/vda rw rootfstype=ext4 ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/init" \
- -drive file=$D,format=raw,id=disk0,if=none \
- -device virtio-blk-device,drive=disk0 \
- -drive file=$R,format=raw,id=disk1,if=none \
+ -drive file=$D,format=raw,id=disk1,if=none \
  -device virtio-blk-device,drive=disk1 \
+ -drive file=$R,format=raw,id=disk0,if=none \
+ -device virtio-blk-device,drive=disk0 \
  -boot c \
+  $DBG \
  | tee serial.log
-
 
 # -s -S \
 # -append "console=ttyAMA0 root=$RDEV rw rootfstype=ext4 ip=10.0.2.15::10.0.2.1:255.255.255.0 init=/init" \
