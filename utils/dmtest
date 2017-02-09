@@ -1,0 +1,232 @@
+#!/bin/bash
+###########################################################################
+#                                                                         #
+#     DMTEST : dm-crypt module tester                                     #
+#                                                                         #
+#     Author: Binoy Jayan                                                 #
+#     Date Written : February 9 2017                                      #
+#                                                                         #
+#     Description                                                         #
+#     ------------                                                        #
+#     Tests the dm-crypt module with Luks volume                          #
+#                                                                         #
+#     Features:                                                           #
+#                                                                         #
+#      - Test with cat, dd bonnie++ and fio                               #
+#      - Test on loop device and read hdd                                 #
+#                                                                         #
+#     By default, it runs all tests on a block device                     #
+#                                                                         #
+#     For options run the following command                               #
+#                                                                         #
+#        dmtest -h                                                        #
+#                                                                         #
+###########################################################################
+
+# Default options; Can be changed at run time using cmdline options
+BASESTR=`basename $0`
+HDDEV=/dev/vdb
+BLKDEV=/dev/loop0
+CRDEV=crdev
+CRYPTDEV=/dev/mapper/$CRDEV
+LOOPFILE=HDB.hdd
+LOOPSIZE=50
+LOOPFLAG=true
+TEST=cat
+TESTFLAG=false
+PASS="11111"
+ECHO=""
+
+usage()
+{
+      echo ""
+      echo "Usage: $BASESTR <option> [parameter] [option2] [param2]..."
+      echo ""
+      echo "Options"
+      echo ""
+      echo "-d <hdd>        : The disk volume used for testing. Default: $BLKDEV"
+      echo "                : To use loop devices use the loop device name"
+      echo "                : When used, loop device is automatically created"
+      echo "-c imgfile      : Create block img used with loop device. Default: $LOOPFILE"
+      echo "-t              : List the tests available"
+      echo "-r n            : Run the test n"
+      echo "-g              : Don't build. Just echo cmds"
+      echo "-y              : Do not ask for confirmation before running tests"
+      echo "-h              : Display usage"
+      echo ""
+      echo "EXamples:"
+      echo ""
+      echo "$BASESTR"
+      echo "$BASESTR -r all"
+      echo "$BASESTR -r all"
+      echo "$BASESTR -r 1 -d /dev/vdb"
+      echo ""
+}
+
+sudo_check()
+{
+	ME=`whoami`
+	if [ $ME != "root" ]; then
+		echo "Run the script as a root or use sudo $BASESTR"
+		echo ""
+		exit
+	fi
+}
+
+list_tests()
+{
+	echo "cat"
+	echo "dd"
+	echo "bonnie++"
+	echo "fio"
+}
+
+validate()
+{
+        # Validate that all pre-requisites exist
+
+	if [ "$LOOPFLAG" == "false" ]; then
+	        if [ ! -f "$HDDEV" ]; then
+			echo "Could not find hdd file $HDDEV. Use -d to specify it"
+			found=0
+		fi
+	fi
+}
+
+display_config()
+{
+	echo "Test configuration"
+	echo ""
+	if [ $LOOPFLAG == "true" ]; then
+ 	echo "Loop image		= $LOOPFILE [$LOOPSIZE MiB]"
+	fi
+ 	echo "Block device		= $BLKDEV"
+	echo "Crypto device		= $CRYPTDEV"
+	echo "Test performed		= $TEST"
+	echo ""
+}
+
+create_dev()
+{
+	if [ "$LOOPFLAG" == "true" ]
+	then
+		echo "Creating block image and loop device..."
+		$ECHO dd if=/dev/zero of=$LOOPFILE bs=1M count=$LOOPSIZE
+		$ECHO losetup $BLKDEV $LOOPFILE
+		echo "done."
+	fi
+}
+
+remove_dev()
+{
+	if [ "$LOOPFLAG" == "true" ]
+	then
+		echo "Detaching loop device and removing block image..."
+		$ECHO losetup -d $BLKDEV
+		$ECHO rm -f $LOOPFILE
+		echo "done."
+	fi
+}
+
+test_cat()
+{
+	ALG=$1
+	$ECHO echo -n $PASS | cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
+	$ECHO echo -n $PASS | cryptsetup luksOpen $BLKDEV $CRDEV
+	$ECHO dmsetup table --showkeys
+	$ECHO ls -l $CRYPTDEV
+	$ECHO echo '111111111122222222223333333333444444444455555555556666666666000' > $CRYPTDEV
+	$ECHO echo '111111111122222222223333333333444444444455555555556666666666000' > $TMP/data1.txt
+	$ECHO dd if=$CRYPTDEV bs=1 count=64 of=$TMP/data2.txt
+	$ECHO diff $TMP/data1.txt $TMP/data2.txt
+	STATUS=$?
+	$ECHO sleep 1
+	$ECHO cryptsetup luksClose $CRDEV
+	if [ "$STATUS" == "0" ]; then
+		echo "The cat test is successful"
+	else
+		echo "The cat test failed"
+		remove_dev
+		exit
+	fi
+}
+
+do_test()
+{
+	STARTDATE=`date`
+	STARTSEC=`date +"%s"`
+
+	echo "Running tests..."
+
+	test_cat "aes-cbc-essiv:sha256"
+
+	echo "done"
+	echo ""
+
+	ENDSEC=`date +"%s"`
+	ENDDATE=`date`
+
+	echo "Tests started at $STARTDATE and ended at $STARTDATE"
+	TIMEDIFF=`expr $ENDSEC - $STARTSEC`
+	MIN=`expr $TIMEDIFF / 60`
+	SEC=`expr $TIMEDIFF % 60`
+	echo "Elapsed time = $MIN minutes $SEC seconds"
+	echo ""
+}
+
+
+# Main script execution
+echo ""
+
+found=0
+while getopts "d:r:tgyh" opt; do
+  found=1
+  case $opt in
+    d)
+        BLKDEV=$OPTARG
+	LOOPFLAG=false
+        ;;
+    r)
+        TEST=$OPTARG
+	TESTFLAG=true
+        ;;
+    c)
+        LOOPFILE=$OPTARG
+	LOOPFLAG=true
+        ;;
+    t)
+        list_tests
+        ;;
+    g)
+        ECHO=echo
+        ;;
+    h)
+	HELPFLAG=true
+        ;;
+    \?)
+        echo ""
+        echo "Invalid/insufficient arguments mentioned!"
+        usage
+        ;;
+  esac
+done
+
+if [ "$ECHO" == "" ]; then
+	sudo_check
+fi
+validate
+
+if [ "$HELPFLAG" == "true" ]; then
+	usage
+	exit
+fi
+
+if [ "$ECHO" != "" ]; then
+	display_config
+fi
+
+create_dev
+do_test
+remove_dev
+
+
