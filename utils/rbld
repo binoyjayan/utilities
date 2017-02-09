@@ -173,9 +173,9 @@ build_rootfs()
 	else
 		echo -n "Extracting vanilla rootfs into temporary directory..."
 		rm -rf $TARTMP/*
-		tar xf $VANILLAPATH -C $TARTMP
+		sudo su -c "tar xf $VANILLAPATH -C $TARTMP"
 		cd $TARTMP
-		ln $TARTMP/sbin/init ./
+		sudo ln $TARTMP/sbin/init ./
 		cd - &> /dev/null
 		echo "done."
 	fi
@@ -185,7 +185,7 @@ build_rootfs()
 		echo -n "Copying the modules to rootfs..."
 		rm -rf $TARTMP/lib/modules/*
 		mkdir -p $TARTMP/lib/modules
-		cp -a $MODPATH/* $TARTMP/lib/modules/
+		sudo cp -a $MODPATH/* $TARTMP/lib/modules/
 		echo "done."
 	fi
 
@@ -195,7 +195,7 @@ build_rootfs()
 		for x in "${dirpaths[@]}"
 		do
 			echo -n "Copying directory $x..."
-			cp -a $x/* $TARTMP/
+			sudo cp -a $x/* $TARTMP/
 			echo "done."
 		done
 		echo "done."
