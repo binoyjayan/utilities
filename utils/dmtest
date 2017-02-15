@@ -12,10 +12,10 @@
 #                                                                         #
 #     Features:                                                           #
 #                                                                         #
-#      - Test with cat, dd bonnie++ and fio                               #
-#      - Test on loop device and read hdd                                 #
+#      - Test with cat, dd, bonnie++ and fio                              #
+#      - Test on loop device and real hdd                                 #
 #                                                                         #
-#     By default, it runs all tests on a block device                     #
+#     By default, it runs all tests on an encrypted loop device           #
 #                                                                         #
 #     For options run the following command                               #
 #                                                                         #
@@ -63,7 +63,7 @@ usage()
       echo "-t name         : Run the test name. all to run all tests. Default: $TEST"
       echo "-l              : List the tests available. Use -t to select a test. Default: $TEST"
       echo "-p              : Change the passphrase for cryptsetup"
-      echo "-g              : Don't build. Just echo cmds"
+      echo "-g              : Don't run tests. Just echo cmds"
       echo "-o              : Test output file"
       echo "-y              : Do not ask for confirmation before running tests"
       echo "-h              : Display usage"
@@ -75,6 +75,8 @@ usage()
       echo "$BASESTR -t dd -d /dev/vdb"
       echo "$BASESTR -o out.log"
       echo "$BASESTR -y -o out.log"
+      echo "$BASESTR -d /dev/sdb -s 500  -t dd -o out.log
+      echo "$BASESTR -d /dev/sdb -s 1000 -o out.log -y
       echo ""
 }
 
@@ -260,11 +262,13 @@ test_dd()
 	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
 	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
 
-	echo "Peforming seq read  on the first $CRSIZE MiB of the device" >> $OUTFILE
+	echo "Peforming seq read on the first $CRSIZE MiB of the device" >> $OUTFILE &>> $OUTFILE
+	echo "Invoke dd: dd if=$CRYPTDEV of=/dev/zero bs=1M count=$CRSIZE  iflag=direct" &>> $OUTFILE
 	$ECHO time dd if=$CRYPTDEV of=/dev/zero bs=1M count=$CRSIZE  iflag=direct &>> $OUTFILE
 	echo "" >> $OUTFILE
 
 	echo "Peforming seq write on the first $CRSIZE MiB of the device" >> $OUTFILE &>> $OUTFILE
+	echo "Invoke dd: dd if=/dev/zero of=$CRYPTDEV bs=1M count=$CRSIZE  oflag=direct" &>> $OUTFILE
 	$ECHO time dd if=/dev/zero of=$CRYPTDEV bs=1M count=$CRSIZE  oflag=direct &>> $OUTFILE
 	echo "" >> $OUTFILE
 
@@ -363,7 +367,7 @@ do_tests()
 echo ""
 
 found=0
-while getopts "d:s:r:c:t:lgo:yph" opt; do
+while getopts "d:s:r:f:c:t:lgo:yph" opt; do
   found=1
   case $opt in
     d)
