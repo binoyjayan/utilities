@@ -25,6 +25,8 @@
 
 # Default options; Can be changed at run time using cmdline options
 BASESTR=`basename $0`
+OUTFILE=`tty`
+TMP="/tmp"
 HDDEV=/dev/vdb
 BLKDEV=/dev/loop0
 CRDEV=crdev
@@ -55,6 +57,7 @@ usage()
       echo "-t              : List the tests available"
       echo "-p              : Change the passphrase for cryptsetup"
       echo "-g              : Don't build. Just echo cmds"
+      echo "-o              : Test output file"
       echo "-y              : Do not ask for confirmation before running tests"
       echo "-h              : Display usage"
       echo ""
@@ -74,6 +77,14 @@ check_su()
 		echo ""
 		exit
 	fi
+}
+
+header()
+{
+	echo "--------------------------------------------------------------------------------" >> $OUTFILE
+	echo "                   $1" >> $OUTFILE
+	echo "--------------------------------------------------------------------------------" >> $OUTFILE
+	echo "" >> $OUTFILE
 }
 
 list_tests()
@@ -103,7 +114,9 @@ validate()
 
 display_config()
 {
+	echo "--------------------------------------------------------------------------------"
 	echo "Test configuration"
+	echo "--------------------------------------------------------------------------------"
 	echo ""
 	if [ $LOOPFLAG == "true" ]; then
  	echo "Loop image		= $LOOPFILE [$LOOPSIZE MiB]"
@@ -120,7 +133,8 @@ create_dev()
 	if [ "$LOOPFLAG" == "true" ]
 	then
 		echo "Creating block image and loop device..."
-		$ECHO dd if=/dev/zero of=$LOOPFILE bs=1M count=$BLKSIZE
+		header "Loop device $LOOPFILE of size $BLKSIZE MiB"
+		$ECHO dd if=/dev/zero of=$LOOPFILE bs=1M count=$BLKSIZE &>> $OUTFILE
 		$ECHO losetup $BLKDEV $LOOPFILE
 		echo "done."
 	fi
@@ -141,16 +155,32 @@ test_cat()
 {
 	ALG=$1
 
-	echo ""
 	echo "Running cat test for correctness..."
+	header "Test for correctness using cat"
 
-	$ECHO echo -n $PASS | cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
-	$ECHO echo -n $PASS | cryptsetup luksOpen $BLKDEV $CRDEV
-	$ECHO dmsetup table --showkeys
-	$ECHO ls -l $CRYPTDEV
-	$ECHO echo '111111111122222222223333333333444444444455555555556666666666000' > $CRYPTDEV
-	$ECHO echo '111111111122222222223333333333444444444455555555556666666666000' > $TMP/data1.txt
-	$ECHO dd if=$CRYPTDEV bs=1 count=64 of=$TMP/data2.txt
+	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV >> $OUTFILE
+	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV >> $OUTFILE
+	$ECHO echo "DM Table:" >> $OUTFILE
+	$ECHO dmsetup table --showkeys >> $OUTFILE
+	$ECHO echo "" >> $OUTFILE
+	$ECHO ls -l $CRYPTDEV >> $OUTFILE
+	$ECHO echo "" >> $OUTFILE
+
+	$ECHO echo "Writing data to $CRYPTDEV..." >> $OUTFILE
+	if [ "$ECHO" == "" ];then
+		echo '111111111122222222223333333333444444444455555555556666666666000' > $CRYPTDEV
+		echo '111111111122222222223333333333444444444455555555556666666666000' > $TMP/data1.txt
+	else
+		$ECHO 'echo '111111111122222222223333333333444444444455555555556666666666000' > $CRYPTDEV'
+		$ECHO 'echo '111111111122222222223333333333444444444455555555556666666666000' > $TMP/data1.txt'
+	fi
+	$ECHO echo "Reading back data from $CRYPTDEV..." >> $OUTFILE
+	$ECHO dd if=$CRYPTDEV bs=1 count=64 of=$TMP/data2.txt &>> $OUTFILE
+	$ECHO echo "Comparing..." >> $OUTFILE
+	$ECHO echo "Original data:" >> $OUTFILE
+	$ECHO cat $TMP/data1.txt &>> $OUTFILE
+	$ECHO echo "Data read back:" >> $OUTFILE
+	$ECHO cat $TMP/data2.txt &>> $OUTFILE
 	$ECHO diff $TMP/data1.txt $TMP/data2.txt
 	STATUS=$?
 
@@ -158,48 +188,71 @@ test_cat()
 	$ECHO sleep 1
 	$ECHO cryptsetup luksClose $CRDEV
 	if [ "$STATUS" == "0" ]; then
-		echo "The cat test is successful!"
+		echo "The cat test is successful!" >> $OUTFILE
 	else
-		echo "The cat test failed!"
+		echo "The cat test failed!" >> $OUTFILE
 		remove_dev
 		exit
 	fi
+	echo "done"
+	echo ""
 }
 
 test_dd()
 {
 	ALG=$1
 	echo "Testing algorithm $ALG with dd..."
-	echo ""
+	header "Test with dd"
 
-	$ECHO echo -n $PASS | cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
-	$ECHO echo -n $PASS | cryptsetup luksOpen $BLKDEV $CRDEV
+	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
+	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
 
-	echo "Peforming seq read  on the first $CRSIZE MiB of the device"
-	$ECHO time dd if=$CRYPTDEV of=/dev/zero bs=1M count=$CRSIZE  iflag=direct
-	echo ""
+	echo "Peforming seq read  on the first $CRSIZE MiB of the device" >> $OUTFILE
+	$ECHO time dd if=$CRYPTDEV of=/dev/zero bs=1M count=$CRSIZE  iflag=direct &>> $OUTFILE
+	echo "" >> $OUTFILE
 
-	echo "Peforming seq write on the first $CRSIZE MiB of the device"
-	$ECHO time dd if=/dev/zero of=$CRYPTDEV bs=1M count=$CRSIZE  oflag=direct
+	echo "Peforming seq write on the first $CRSIZE MiB of the device" >> $OUTFILE &>> $OUTFILE
+	$ECHO time dd if=/dev/zero of=$CRYPTDEV bs=1M count=$CRSIZE  oflag=direct &>> $OUTFILE
+	echo "" >> $OUTFILE
 
 	# Time for the device to breathe
 	$ECHO sleep 1
 	$ECHO cryptsetup luksClose $CRDEV
 	echo "done"
+	echo ""
 }
 
-do_test()
+test_bonnie()
+{
+	ALG=$1
+	echo "Testing algorithm $ALG with bonnie++..."
+	header "Test with bonnie++"
+
+	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
+	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
+
+	$ECHO mkfs.ext4 -j $CRYPTDEV &>> $OUTFILE
+	# bonnie++ -d /data -s 1024 -m qemu -r 512 -u root –b >> $OUTFILE
+
+	# Time for the device to breathe
+	$ECHO sleep 1
+	$ECHO cryptsetup luksClose $CRDEV
+	echo "done"
+	echo ""
+}
+
+do_tests()
 {
 	STARTDATE=`date`
 	STARTSEC=`date +"%s"`
 
 	echo ""
 	echo "Running tests..."
+	echo ""
 
 	test_cat "aes-cbc-essiv:sha256"
 	test_dd "aes-cbc-essiv:sha256"
-
-	echo ""
+	test_bonnie "aes-cbc-essiv:sha256"
 
 	ENDSEC=`date +"%s"`
 	ENDDATE=`date`
@@ -217,7 +270,7 @@ do_test()
 echo ""
 
 found=0
-while getopts "d:r:c:tgyph" opt; do
+while getopts "d:r:c:tgo:yph" opt; do
   found=1
   case $opt in
     d)
@@ -248,6 +301,9 @@ while getopts "d:r:c:tgyph" opt; do
     g)
         ECHO=echo
         ;;
+    o)
+        OUTFILE="$OPTARG"
+        ;;
     y)
 	CONFIRM=true
 	CONF="yes"
@@ -276,7 +332,7 @@ if [ $CONFIRM == "false" ]; then
 	read CONF
 fi
 
-if [ "$CONF" != "yes" ]; then
+if [ "$CONF" != "yes" -a "$CONF" != "y" ]; then
 	echo "Aborting operation!"
 	exit
 fi
@@ -286,9 +342,10 @@ if [ "$ECHO" == "" ]; then
 fi
 
 echo ""
-
+echo "" > $OUTFILE
+ 
 create_dev
-do_test
+do_tests
 remove_dev
-
+echo ""
 
