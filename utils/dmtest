@@ -58,6 +58,7 @@ usage()
       echo "-s disksize     : Size of disk volume in MiB. Default: $BLKSIZE"
       echo "-r ramsize      : Size of ram in MiB. Default: $RAMSIZE"
       echo "-f filesize     : File size to test bonnie++. Default: $FILESIZE"
+      echo "                : For best results use twice the file size as the ram"
       echo "-c imgfile      : Create block img used with loop device. Default: $LOOPFILE"
       echo "-t name         : Run the test name. all to run all tests. Default: $TEST"
       echo "-l              : List the tests available. Use -t to select a test. Default: $TEST"
@@ -305,6 +306,30 @@ test_bonnie()
 	echo ""
 }
 
+test_fio()
+{
+	ALG=$1
+	echo "Testing algorithm $ALG with fio..."
+	header "Test with dd"
+
+	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
+	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
+
+	echo "Random read:" >> $OUTFILE
+	$ECHO fio --filename=$CRYPTDEV --direct=1 --iodepth=1 --rw=randread --bs=1M --size=${CRSIZE}M --group_reporting --numjobs=1 --name=test_randr &>> $OUTFILE
+	echo "" >> $OUTFILE
+
+	echo "Random write:" >> $OUTFILE
+	$ECHO fio --filename=$CRYPTDEV --direct=1 --iodepth=1 --rw=randwrite --bs=1M --size=${CRSIZE}M --group_reporting --numjobs=1 --name=test_randw &>> $OUTFILE
+	echo "" >> $OUTFILE
+
+	# Time for the device to breathe
+	$ECHO sleep 1
+	$ECHO cryptsetup luksClose $CRDEV
+	echo "done"
+	echo ""
+}
+
 do_tests()
 {
 	STARTDATE=`date`
@@ -318,6 +343,7 @@ do_tests()
 		test_cat "aes-cbc-essiv:sha256"
 		test_dd "aes-cbc-essiv:sha256"
 		test_bonnie "aes-cbc-essiv:sha256"
+		test_fio "aes-cbc-essiv:sha256"
 	else
 		test_$TEST "aes-cbc-essiv:sha256"
 	fi
@@ -332,7 +358,6 @@ do_tests()
 	echo "Elapsed time = $MIN minutes $SEC seconds"
 	echo ""
 }
-
 
 # Main script execution
 echo ""
