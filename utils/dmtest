@@ -26,17 +26,21 @@
 # Default options; Can be changed at run time using cmdline options
 BASESTR=`basename $0`
 OUTFILE=`tty`
+OUTFLAG=false
 TMP="/tmp"
+MNT="/mnt/dmtest"
 HDDEV=/dev/vdb
 BLKDEV=/dev/loop0
 CRDEV=crdev
 CRYPTDEV=/dev/mapper/$CRDEV
 LOOPFILE=HDB.hdd
-LOOPSIZE=50
-BLKSIZE=50
+LOOPSIZE=256
+BLKSIZE=256
+FILESIZE=128
+RAMSIZE=64
 LOOPFLAG=true
+ALLTESTS="cat dd bonnie fio"
 TEST=all
-TESTFLAG=false
 PASS="11111"
 CONFIRM=false
 ECHO=""
@@ -50,11 +54,13 @@ usage()
       echo ""
       echo "-d <hdd>        : The disk volume used for testing. Default: $BLKDEV"
       echo "                : To use loop devices use the loop device name"
-      echo "                : When used, loop device is automatically created"
-      echo "-s size         : Size of disk volume in MiB. Default: $BLKSIZE"
+      echo "                : When used, loop device is created automatically"
+      echo "-s disksize     : Size of disk volume in MiB. Default: $BLKSIZE"
+      echo "-r ramsize      : Size of ram in MiB. Default: $RAMSIZE"
+      echo "-f filesize     : File size to test bonnie++. Default: $FILESIZE"
       echo "-c imgfile      : Create block img used with loop device. Default: $LOOPFILE"
-      echo "-r name         : Run the test name. all to run all tests. Default: $TEST"
-      echo "-t              : List the tests available"
+      echo "-t name         : Run the test name. all to run all tests. Default: $TEST"
+      echo "-l              : List the tests available. Use -t to select a test. Default: $TEST"
       echo "-p              : Change the passphrase for cryptsetup"
       echo "-g              : Don't build. Just echo cmds"
       echo "-o              : Test output file"
@@ -64,8 +70,10 @@ usage()
       echo "EXamples:"
       echo ""
       echo "$BASESTR"
-      echo "$BASESTR -r all"
-      echo "$BASESTR -r dd -d /dev/vdb"
+      echo "$BASESTR -t all"
+      echo "$BASESTR -t dd -d /dev/vdb"
+      echo "$BASESTR -o out.log"
+      echo "$BASESTR -y -o out.log"
       echo ""
 }
 
@@ -89,10 +97,22 @@ header()
 
 list_tests()
 {
-	echo "cat"
-	echo "dd"
-	echo "bonnie++"
-	echo "fio"
+	echo "--------------------------------------------------------------------------------" >> $OUTFILE
+	echo "                   Available tests" >> $OUTFILE
+	echo "--------------------------------------------------------------------------------" >> $OUTFILE
+	echo "cat	Run cat test for verifying correctness"
+	echo "dd	Run dd test on the encrypted volume"
+	echo "bonnie	Run file system tests on a mounted volume using bonnie++"
+	echo "fio	Run fio tests on the encrypted volume"
+	echo ""
+	echo "Choose a test as:"
+	echo ""
+	echo "$BASESTR -t cat        : Run only cat test"
+	echo "$BASESTR -t cat        : Run all tests. This is the default"
+	echo ""
+	echo "For more info, run $BASESTR -h"
+	echo ""
+	exit
 }
 
 validate()
@@ -107,6 +127,23 @@ validate()
 	else
 		BLKSIZE=$LOOPSIZE
 	fi
+
+	# Validate the tests
+	if [ "$TEST" != "all" ]; then
+		case $TEST in
+		cat)
+			;&
+		dd)
+			;&
+		bonnie)
+			;&
+		fio)
+			;;
+		*)
+			echo "Invalid test $TEST. Use $BASESTR -l to list the tests"
+			exit
+		esac
+	fi
 	# Using 1 MiB less than the volume size as the cryptsetup saves
 	# the header in the first 2048 KiB.
 	CRSIZE=`expr $BLKSIZE - 2`
@@ -119,12 +156,25 @@ display_config()
 	echo "--------------------------------------------------------------------------------"
 	echo ""
 	if [ $LOOPFLAG == "true" ]; then
- 	echo "Loop image		= $LOOPFILE [$LOOPSIZE MiB]"
+ 	echo "Loop image			= $LOOPFILE [$LOOPSIZE MiB]"
 	fi
- 	echo "Block device		= $BLKDEV [$BLKSIZE MiB]"
-	echo "Crypto device		= $CRYPTDEV"
-	echo "Size used in device	= $CRSIZE MiB"
-	echo "Test performed		= $TEST"
+ 	echo "Block device			= $BLKDEV [$BLKSIZE MiB]"
+	echo "Crypto device			= $CRYPTDEV"
+	echo "Size used in device		= $CRSIZE MiB"
+	echo "Ram size [for bonnie++]		= $RAMSIZE MiB"
+	echo "File size [bonnie++]		= $FILESIZE MiB"
+	echo "Test performed			= $TEST"
+	if [ $OUTFLAG == "true" ]; then
+	echo "Output file			= $OUTFILE"
+	else
+	echo "Output file			= stdin"
+	fi
+	echo ""
+	echo "--------------------------------------------------------------------------------"
+	echo ""
+	echo "For help on changing configuration parameters, type:"
+	echo ""
+	echo "$BASESTR -h"
 	echo ""
 }
 
@@ -156,12 +206,14 @@ test_cat()
 	ALG=$1
 
 	echo "Running cat test for correctness..."
+
 	header "Test for correctness using cat"
 
 	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV >> $OUTFILE
 	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV >> $OUTFILE
 	$ECHO echo "DM Table:" >> $OUTFILE
-	$ECHO dmsetup table --showkeys >> $OUTFILE
+	# $ECHO dmsetup table --showkeys >> $OUTFILE
+	$ECHO dmsetup table >> $OUTFILE
 	$ECHO echo "" >> $OUTFILE
 	$ECHO ls -l $CRYPTDEV >> $OUTFILE
 	$ECHO echo "" >> $OUTFILE
@@ -232,8 +284,20 @@ test_bonnie()
 	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
 
 	$ECHO mkfs.ext4 -j $CRYPTDEV &>> $OUTFILE
-	# bonnie++ -d /data -s 1024 -m qemu -r 512 -u root –b >> $OUTFILE
 
+	echo "Mouting volume $CRYPTDEV on $MNT" >> $OUTFILE
+	$ECHO mkdir -p $MNT &>> $OUTFILE
+	$ECHO mount $CRYPTDEV $MNT &>> $OUTFILE
+
+	echo "Invoking bonnie++ [bonnie++ -d $MNT -s $FILESIZE -m qemu -r $RAMSIZE -u root]" >> $OUTFILE
+
+	$ECHO df -h $MNT >> $OUTFILE
+	$ECHO df $MNT >> $OUTFILE
+	$ECHO bonnie++ -d $MNT -s $FILESIZE -m qemu -r $RAMSIZE -u root &>> $OUTFILE
+
+	# Time for the device to breathe
+	$ECHO sleep 1
+	$ECHO umount $MNT &>> $OUTFILE
 	# Time for the device to breathe
 	$ECHO sleep 1
 	$ECHO cryptsetup luksClose $CRDEV
@@ -247,12 +311,16 @@ do_tests()
 	STARTSEC=`date +"%s"`
 
 	echo ""
-	echo "Running tests..."
+	echo "Running test(s)..."
 	echo ""
 
-	test_cat "aes-cbc-essiv:sha256"
-	test_dd "aes-cbc-essiv:sha256"
-	test_bonnie "aes-cbc-essiv:sha256"
+	if [ "$TEST" == "all" ]; then
+		test_cat "aes-cbc-essiv:sha256"
+		test_dd "aes-cbc-essiv:sha256"
+		test_bonnie "aes-cbc-essiv:sha256"
+	else
+		test_$TEST "aes-cbc-essiv:sha256"
+	fi
 
 	ENDSEC=`date +"%s"`
 	ENDDATE=`date`
@@ -270,7 +338,7 @@ do_tests()
 echo ""
 
 found=0
-while getopts "d:r:c:tgo:yph" opt; do
+while getopts "d:s:r:c:t:lgo:yph" opt; do
   found=1
   case $opt in
     d)
@@ -280,15 +348,20 @@ while getopts "d:r:c:tgo:yph" opt; do
     s)
         BLKSIZE=$OPTARG
         ;;
+    r)
+        RAMSIZE=$OPTARG
+        ;;
+    f)
+        FILESIZE=$OPTARG
+        ;;
     c)
         LOOPFILE=$OPTARG
 	LOOPFLAG=true
         ;;
-    r)
-        TEST=$OPTARG
-	TESTFLAG=true
-        ;;
     t)
+        TEST=$OPTARG
+        ;;
+    l)
         list_tests
         ;;
     p)
@@ -303,6 +376,7 @@ while getopts "d:r:c:tgo:yph" opt; do
         ;;
     o)
         OUTFILE="$OPTARG"
+        OUTFLAG=true
         ;;
     y)
 	CONFIRM=true
@@ -315,6 +389,7 @@ while getopts "d:r:c:tgo:yph" opt; do
         echo ""
         echo "Invalid/insufficient arguments mentioned!"
         usage
+	exit
         ;;
   esac
 done
@@ -348,4 +423,5 @@ create_dev
 do_tests
 remove_dev
 echo ""
+echo "" >> $OUTFILE
 
