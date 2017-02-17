@@ -39,7 +39,6 @@ BLKSIZE=256
 FILESIZE=128
 RAMSIZE=64
 LOOPFLAG=true
-ALLTESTS="cat dd bonnie fio"
 TEST=all
 PASS="11111"
 CONFIRM=false
@@ -445,8 +444,12 @@ if [ "$ECHO" == "" ]; then
 	check_su
 fi
 
-echo ""
+DT=`date`
 echo "" > $OUTFILE
+echo "--------------------------------------------------------------------------------" >> $OUTFILE
+echo " dm-crypt tests - $DT" >> $OUTFILE
+echo "--------------------------------------------------------------------------------" >> $OUTFILE
+echo "" >> $OUTFILE
  
 create_dev
 do_tests
