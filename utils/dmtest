@@ -54,6 +54,7 @@ usage()
       echo "-d <hdd>        : The disk volume used for testing. Default: $BLKDEV"
       echo "                : To use loop devices use the loop device name"
       echo "                : When used, loop device is created automatically"
+      echo "                : Use the option -c along with this"
       echo "-s disksize     : Size of disk volume in MiB. Default: $BLKSIZE"
       echo "-r ramsize      : Size of ram in MiB. Default: $RAMSIZE"
       echo "-f filesize     : File size to test bonnie++. Default: $FILESIZE"
@@ -74,8 +75,15 @@ usage()
       echo "$BASESTR -t dd -d /dev/vdb"
       echo "$BASESTR -o out.log"
       echo "$BASESTR -y -o out.log"
-      echo "$BASESTR -d /dev/sdb -s 500  -t dd -o out.log
-      echo "$BASESTR -d /dev/sdb -s 1000 -o out.log -y
+      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y"
+      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t all"
+      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t cat"
+      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t dd"
+      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t bonnie"
+      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t fio"
+      echo ""
+      echo "NB: Do not use the busybox version of dd."
+      echo "    Use the full fledged version. Compile from src if necessary"
       echo ""
 }
 
@@ -313,7 +321,7 @@ test_fio()
 {
 	ALG=$1
 	echo "Testing algorithm $ALG with fio..."
-	header "Test with dd"
+	header "Test with fio"
 
 	$ECHO echo -n $PASS | $ECHO cryptsetup -y -c $ALG -s 256 --hash sha256 luksFormat $BLKDEV
 	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
