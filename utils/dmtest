@@ -56,7 +56,7 @@ usage()
       echo "                : When used, loop device is created automatically"
       echo "                : Use the option -c along with this"
       echo "-s disksize     : Size of disk volume in MiB. Default: $BLKSIZE"
-      echo "-r ramsize      : Size of ram in MiB. Default: $RAMSIZE"
+      echo "-r ramsize      : Size of ram in MiB [used with bonnie++]. Default: $RAMSIZE"
       echo "-f filesize     : File size to test bonnie++. Default: $FILESIZE"
       echo "                : For best results use twice the file size as the ram"
       echo "-c imgfile      : Create block img used with loop device. Default: $LOOPFILE"
@@ -75,12 +75,11 @@ usage()
       echo "$BASESTR -t dd -d /dev/vdb"
       echo "$BASESTR -o out.log"
       echo "$BASESTR -y -o out.log"
-      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y"
-      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t all"
-      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t cat"
-      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t dd"
-      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t bonnie"
-      echo "$BASESTR -d /dev/sdb -s 1024 -o out.log -y -t fio"
+      echo "$BASESTR -d /dev/sdb -o out.log -s 1024 -y"
+      echo "$BASESTR -d /dev/vdb -o out.log -s 1024 -t cat"
+      echo "$BASESTR -d /dev/vdb -o out.log -s  512 -t fio"
+      echo "$BASESTR -d /dev/vdb -o out.log -s  512 -r 128 -f 256"
+      echo "$BASESTR -d /dev/vdb -o out.log -s 1024 -r 384 -f 768"
       echo ""
       echo "NB: Do not use the busybox version of dd."
       echo "    Use the full fledged version. Compile from src if necessary"
@@ -299,7 +298,7 @@ test_bonnie()
 
 	echo "Mouting volume $CRYPTDEV on $MNT" >> $OUTFILE
 	$ECHO mkdir -p $MNT &>> $OUTFILE
-	$ECHO mount $CRYPTDEV $MNT &>> $OUTFILE
+	$ECHO mount -t ext4 $CRYPTDEV $MNT &>> $OUTFILE
 
 	echo "Invoking bonnie++ [bonnie++ -d $MNT -s $FILESIZE -m qemu -r $RAMSIZE -u root]" >> $OUTFILE
 
