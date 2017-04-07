@@ -129,7 +129,7 @@ validate()
         # Validate that all pre-requisites exist
 
 	if [ "$LOOPFLAG" == "false" ]; then
-	        if [ ! -f "$HDDEV" ]; then
+	        if [ ! -b "$HDDEV" ]; then
 			echo "Could not find hdd file $HDDEV. Use -d to specify it"
 			found=0
 		fi
@@ -269,7 +269,7 @@ test_dd()
 	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
 
 	echo "Peforming seq read on the first $CRSIZE MiB of the device" >> $OUTFILE &>> $OUTFILE
-	echo "Invoke dd: dd if=$CRYPTDEV of=/dev/zero bs=1M count=$CRSIZE  iflag=direct" &>> $OUTFILE
+	echo "Invoke dd: dd if=$CRYPTDEV of=/dev/null bs=1M count=$CRSIZE  iflag=direct" &>> $OUTFILE
 	$ECHO time dd if=$CRYPTDEV of=/dev/zero bs=1M count=$CRSIZE  iflag=direct &>> $OUTFILE
 	echo "" >> $OUTFILE
 
@@ -326,10 +326,12 @@ test_fio()
 	$ECHO echo -n $PASS | $ECHO cryptsetup luksOpen $BLKDEV $CRDEV
 
 	echo "Random read:" >> $OUTFILE
+	echo "Invoke FIO: fio --filename=$CRYPTDEV --direct=1 --iodepth=1 --rw=randread --bs=1M --size=${CRSIZE}M --group_reporting --numjobs=1 --name=test_randr" &>> $OUTFILE
 	$ECHO fio --filename=$CRYPTDEV --direct=1 --iodepth=1 --rw=randread --bs=1M --size=${CRSIZE}M --group_reporting --numjobs=1 --name=test_randr &>> $OUTFILE
 	echo "" >> $OUTFILE
 
 	echo "Random write:" >> $OUTFILE
+	echo "Invoke FIO: fio --filename=$CRYPTDEV --direct=1 --iodepth=1 --rw=randwrite --bs=1M --size=${CRSIZE}M --group_reporting --numjobs=1 --name=test_randw" &>> $OUTFILE
 	$ECHO fio --filename=$CRYPTDEV --direct=1 --iodepth=1 --rw=randwrite --bs=1M --size=${CRSIZE}M --group_reporting --numjobs=1 --name=test_randw &>> $OUTFILE
 	echo "" >> $OUTFILE
 
