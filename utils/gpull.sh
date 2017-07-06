@@ -25,9 +25,7 @@ then
         exit
 fi
 
-# git fetch ssh://review-android.quicinc.com:29418/kernel/msm-3.18 refs/changes/46/1790946/1
-URL="ssh://review-android.quicinc.com:29418"
-PROJ="kernel/msm-3.18"
+URL="ssh://review-android.quicinc.com:29418/kernel/msm-3.18"
 REF="refs/changes"
 
 ARGS="$#"
@@ -42,7 +40,7 @@ fi
 if [ "$CMD" == "cp" ]; then
 	for var in "$@"
 	do
-		git fetch $URL/$PROJ $REF/$var
+		git fetch $URL $REF/$var
 		if [ "$?" != "0" ]; then
 			echo "Failed to fetch $var to cherry-pick"
 			exit
@@ -57,7 +55,7 @@ if [ "$CMD" == "cp" ]; then
 	done
 elif [ "$CMD" == "co" ]; then
 	if [ "$ARGS" == "2" ]; then
-		git fetch $URL/$PROJ $REF/$1
+		git fetch $URL $REF/$1
 		if [ "$?" != "0" ]; then
 			echo "Failed to fetch $var to checkout"
 			exit
@@ -68,7 +66,7 @@ elif [ "$CMD" == "co" ]; then
 			exit
 		fi
 	elif [ "$ARGS" == "3" ]; then
-		git fetch $URL/$PROJ $REF/$1
+		git fetch $URL $REF/$1
 		if [ "$?" != "0" ]; then
 			echo "Failed to fetch $var"
 			exit
