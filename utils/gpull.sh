@@ -1,7 +1,8 @@
 #!/bin/bash
 BASESTR=`basename $0`
-if [ "$#" -lt 2 ]
-then
+
+usage()
+{
         echo ""
         echo "Usage :"
         echo ""
@@ -23,24 +24,68 @@ then
 	echo "refs/changes/46/1790946/1  [as mentioned in the cherry-pick command ]"
         echo ""
         exit
+}
+
+
+if [ "$#" -lt 2 ]
+then
+	usage
 fi
 
 URL="ssh://review-android.quicinc.com:29418/kernel/msm-3.18"
 REF="refs/changes"
+CMD="cp"
+URLFLAG="f"
+BRANCH="newbranch"
+BRANCHFLAG="f"
 
+while getopts "u:b:h" opt; do
+  found=1
+  case $opt in
+    u)
+        URL=$OPTARG
+	URLFLAG="t"
+        ;;
+    b)
+        BRANCH=$OPTARG
+	BRANCHFLAG="t"
+        ;;
+    h)
+	usage
+        ;;
+    \?)
+        echo ""
+        echo "Invalid/insufficient arguments mentioned!"
+        usage
+        ;;
+  esac
+done
+
+if [ "$URLFLAG" == 't' ]; then
+	shift 2
+fi
+
+if [ "$BRANCHFLAG" == 't' ]; then
+	shift 2
+fi
+
+# Process remaining parameters '<cmd>' '<commit(s)>'
 ARGS="$#"
 CMD="$1"
 shift
 
-if [ ! -d ".git" ]; then
-        echo "No git repository found in the current directory"
-        exit
-fi
+convert_id()
+{
+	RESULT=`echo $1 | awk '{split($0,a,"/"); print substr( a[1], length(a[1]) - 1, length(a[1]) ) "/" a[1] "/" a[2] }'`
+}
 
-if [ "$CMD" == "cp" ]; then
-	for var in "$@"
+cp_commits()
+{
+	for var in "$1"
 	do
-		git fetch $URL $REF/$var
+		convert_id $var
+		echo git fetch $URL $REF/$RESULT
+		git fetch $URL $REF/$RESULT
 		if [ "$?" != "0" ]; then
 			echo "Failed to fetch $var to cherry-pick"
 			exit
@@ -53,33 +98,47 @@ if [ "$CMD" == "cp" ]; then
 			exit
 		fi
 	done
-elif [ "$CMD" == "co" ]; then
+}
+
+co_commit()
+{
+	convert_id $COMMIT
+	echo git fetch $URL $REF/$RESULT
+	git fetch $URL $REF/$RESULT
+	if [ "$?" != "0" ]; then
+		echo "Failed to fetch $var to checkout"
+		exit
+	fi
+
 	if [ "$ARGS" == "2" ]; then
-		git fetch $URL $REF/$1
-		if [ "$?" != "0" ]; then
-			echo "Failed to fetch $var to checkout"
-			exit
-		fi
 		git checkout FETCH_HEAD
 		if [ "$?" != "0" ]; then
 			echo "Failed to checkout $var"
 			exit
 		fi
 	elif [ "$ARGS" == "3" ]; then
-		git fetch $URL $REF/$1
+		git checkout FETCH_HEAD -b $BRANCH
 		if [ "$?" != "0" ]; then
-			echo "Failed to fetch $var"
-			exit
-		fi
-		git checkout FETCH_HEAD -b $2
-		if [ "$?" != "0" ]; then
-			echo "Failed to checkout $var as $2"
+			echo "Failed to checkout $var as $BRANCH"
 			exit
 		fi
 	else
 		echo "Only one gerrit ID should be mentioned for checkout"
 		exit
 	fi
+}
+
+if [ ! -d ".git" ]; then
+        echo "No git repository found in the current directory"
+        exit
+fi
+
+if [ "$CMD" == "cp" ]; then
+	cp_commits $@
+elif [ "$CMD" == "co" ]; then
+	COMMIT=$1
+	BRANCH=$2
+	co_commit
 else
 	echo "Invalid command '$CMD'"
 fi
