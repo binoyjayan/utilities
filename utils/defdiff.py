@@ -5,11 +5,23 @@
 # CONFIGs present in first defconfig file (given as argument) but absent in the
 # second file is prefixed with a '-' sign in the output. Similarly, CONFIGs
 # present in the second defconfig file but absent in first file1 is prefixed
-# with a '+' sign in the output.
+# with a '+' sign in the output. Alternatively, the CONFIGs can be displayed
+# without the prefix as well.
 #
 import sys
 import re
 import os
+
+def usage():
+    bname=os.path.basename(sys.argv[0])
+    print "\nUsage:"
+    print bname + " <defconfig1> <defconfig2> [--no-prefix | n ]\n"
+    print "Examples:"
+    print bname + " msm-auto_defconfig msm-auto-gvm_defconfig"
+    print bname + " msm-auto_defconfig msm-auto-gvm_defconfig -n"
+    print bname + " msm-auto_defconfig msm-auto-gvm_defconfig --no-prefix"
+    print bname + " msm-auto_defconfig msm-auto-gvm_defconfig > diff.def"
+    print ""
 
 # Load file into an array of strings
 def loadf(filen):
@@ -40,24 +52,55 @@ def iterate_configs(arr1, arr2, prefix):
         if not config1:
             continue
 
-        # If the config line1 is not present in arr2
+        # If the config config1 is not present in arr2
         if not find_config(config1, arr2):
-            print prefix, line
+            if prefix:
+                print prefix, line
+            else:
+                print line
+
+# Function to display headers
+def disp_header(f1, f2):
+    print ""
+    print "================================================================"
+    print " CONFIGs present in", f1, "but absent in", f2
+    print "================================================================"
 
 # Main script begins here
-bname=os.path.basename(sys.argv[0])
-if len(sys.argv) < 3:
-    print "\nUsage: " 
-    print bname + " <defconfig1> <defconfig2>\n"
-    print "Example: " 
-    print bname + " msm-auto_defconfig msm-auto-gvm_defconfig"
-    print bname + " msm-auto_defconfig msm-auto-gvm_defconfig > d.def"
-    print "" 
+if len(sys.argv) < 3 or len(sys.argv) > 4:
+    usage()
     sys.exit(1)
+
+
+if not os.path.isfile(sys.argv[1]):
+    print "File", sys.argv[1], "not found!"
+    sys.exit(1)
+
+if not os.path.isfile(sys.argv[2]):
+    print "File", sys.argv[2], "not found!"
+    sys.exit(1)
+
+no_prefix = False
+if len(sys.argv) == 4:
+    if sys.argv[3] == "-n" or sys.argv[3] == "--no-prefix":
+        no_prefix = True
+    else:
+        print "\nInvalid argument:", sys.argv[3]
+        usage()
+        sys.exit(1)
 
 cfg1 = loadf(sys.argv[1])
 cfg2 = loadf(sys.argv[2])
 
-iterate_configs(cfg1, cfg2, "-")
-iterate_configs(cfg2, cfg1, "+")
+arg1 = os.path.basename(sys.argv[1])
+arg2 = os.path.basename(sys.argv[2])
+
+if no_prefix:
+    disp_header(arg1, arg2);
+    iterate_configs(cfg1, cfg2, None)
+    disp_header(arg1, arg2);
+    iterate_configs(cfg2, cfg1, None)
+else:
+    iterate_configs(cfg1, cfg2, "-")
+    iterate_configs(cfg2, cfg1, "+")
 
