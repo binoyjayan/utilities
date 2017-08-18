@@ -15,7 +15,7 @@ import os
 def usage():
     bname=os.path.basename(sys.argv[0])
     print "\nUsage:"
-    print bname + " <defconfig1> <defconfig2> [--no-prefix | n ]\n"
+    print bname + " <defconfig1> <defconfig2> [--no-prefix | -n ]\n"
     print "Examples:"
     print bname + " msm-auto_defconfig msm-auto-gvm_defconfig"
     print bname + " msm-auto_defconfig msm-auto-gvm_defconfig -n"
