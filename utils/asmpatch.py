@@ -51,10 +51,10 @@ def user_input_int(s, therange=range(0,100)):
         ch = raw_input('Invalid range. Try again(0-99):')
         continue
 
-def load_file(filename, verbose):
+def load_file(filename, verbose, clear=True):
     ret = True
     if not os.path.isfile(filename):
-        print 'Patch database not found !'
+        pr_debug(verbose, 'Patch database not found !')
         return False
 
     pr_debug(verbose, 'Reading patch database ' + filename)
@@ -63,7 +63,7 @@ def load_file(filename, verbose):
         print 'Failed to open patch database', filename
         return False
 
-    if db_patches:
+    if clear and db_patches:
         pr_debug(verbose, 'Clearing old data...')
         db_patches.clear()
 
@@ -87,6 +87,7 @@ def load_file(filename, verbose):
             ret = False
             break
 
+        # pr_debug(verbose, 'LOAD -->> ' + s1 + ':' + s2)
         n = int(float(s2))
         db_patches[s1] = n
 
@@ -140,14 +141,14 @@ def show_ps(ps, verbose):
     disp_db()
 
 def list_ps(patchset, verbose):
-    pr_debug(verbose, 'Listing patchset ' + patchset)
-
     psetdir = DB_DIR + '/'+ patchset
     psetinf = DB_DIR + '/'+ patchset + '/' + DB_INF
 
     if not os.path.isdir(psetdir):
         print 'Patchset', patchset, 'not found in the database'
         return False
+
+    pr_debug(verbose, 'Listing patchset ' + patchset)
 
     if not os.path.isfile(psetinf):
         print 'Patch info [.inf] not found in the patchset'
@@ -200,14 +201,17 @@ def validate(repos, patches, verbose):
 
 # List commits and prompt user to choose n
 def get_num_patches(repo):
+    print '-' * 70
     print 'Listing patches in the repo', repo
+    print '-' * 70
     if subprocess.call(['git', '--git-dir=' + repo + '/.git', 'log', '--oneline', '-10']):
         print 'Failed to fetch git log for repo', repo, ' assuming 1 patch'
         return 1
 
+    print ''
     return user_input_int("Enter #patches to pick(0-99):", range(0,100))
 
-def do_add_repo(repos, patches, verbose):
+def do_add_repo(repos, patches, force, verbose):
     i = 0
     for r in repos:
         # If #patch is mentioned for the repo
@@ -217,13 +221,13 @@ def do_add_repo(repos, patches, verbose):
             n = get_num_patches(r)
 
         if r in db_patches.keys():
-            if not user_choice('Repo ' + r + ' already present in the db; Overwrite(y/n):'):
+            if not force and not user_choice('Repo ' + r + ' already present in the db; Overwrite(y/n):'):
                 return False
 
         pr_debug(verbose, 'Adding repo ' + str(r) + ' with ' + str(n) + ' patch(es)')
         db_patches[r] = n
         i =  i + 1
-        return True
+    return True
 
 def do_delete_repo(repos, verbose):
     for r in repos:
@@ -240,17 +244,17 @@ def do_delete_repo(repos, verbose):
 
         print 'Repo', r, 'not found in the database'
 
-def add_repo(repos, patches, verbose):
+def add_repo(repos, patches, force, verbose):
     if not validate(repos, patches, verbose):
         return False
 
     load_file(DB_FILE, verbose)
-    if do_add_repo(repos, patches, verbose):
+    if do_add_repo(repos, patches, force, verbose):
         save_file()
 
-def list_repo(repo, patches, verbose):
+def list_repo_log(repo, patches, verbose):
     if not os.path.isdir(repo + '/.git'):
-        print 'The directory', r, ' is not a git repository'
+        print 'The directory', repo, 'is not a git repository'
         return False
 
     # List 10 patches by default
@@ -259,6 +263,10 @@ def list_repo(repo, patches, verbose):
         n = int(float(patches[0]))
         if n < 1 or n > 100:
             n = 10
+
+    print '-' * 70
+    print 'Listing patches in the repo', repo
+    print '-' * 70
 
     if subprocess.call(['git', '--git-dir=' + repo + '/.git', 'log', '--oneline', '-' + str(n)]):
         print 'Failed to fetch git log for repo', repo, ' assuming 1 patch'
@@ -302,6 +310,7 @@ def checkout(br, verbose):
             print 'Skipping', db, '; No git repo found !'
             continue
         # checkout operation has to be done from inside the git repo
+        # else the files get checked out into the current working directory
         os.chdir(db)
         # print ['git', 'checkout', br]
         if subprocess.call(['git', 'checkout', br]):
@@ -385,20 +394,31 @@ def revert(patchset, force, verbose):
     else:
         print 'Failed to revert one or more patches. Use asmpatch -s to view'
 
-def apply_patches(gdir, pdir):
+def apply_patches(gdir, pdir, db_num):
     filelist = glob.glob(pdir + '/*.patch')
+    num = len(filelist)
+    if num < 1:
+        pr_debug(verbose, 'No patches to apply for ' + gdir)
+        return True
+
+    pr_debug(verbose, 'Applying patches ' + str(num) + ' of ' + str(db_num) + ' for repo ' + gdir)
+
     cwd = os.getcwd()
     n = 0
     success = True
     for fname in sorted(filelist):
         fullname = os.path.abspath(fname)
+        # This git operation has to be done from inside the git repo
+        # else the files in the current working directory may get changed
         os.chdir(gdir)
         pr_debug(verbose, 'Applying ' + fname)
         if subprocess.call(['git', 'am', fullname]):
             print 'Aborting', fname
             subprocess.call(['git', 'am', '--abort'])
-            print 'Failed to apply a few patches; hence reverting', n
-            subprocess.call(['git', 'reset', '--hard', 'HEAD~' + n])
+            if n > 0:
+                print 'Failed to apply a few patches; hence reverting', n
+                subprocess.call(['git', 'reset', '--hard', 'HEAD~' + str(n)])
+
             success = False
             break
         n = n + 1
@@ -407,12 +427,19 @@ def apply_patches(gdir, pdir):
     os.chdir(cwd)
     return success
 
-def apply_ps(patchset, verbose):
+def apply_ps(patchset, force, verbose):
     pr_debug(verbose, 'Applying patchset ' + patchset)
     load_file(DB_FILE, False)
+
+    # While merging, the database contains the patchset information
+    # from both the current database as well as the one which is
+    # being applied (merged). So, while the patch is actually being
+    # applied, it would only apply the patches available in the
+    # patchset directory
+
     if not db_is_empty():
-	print 'Patch database is not empty. Revert the patches before applying'
-        return
+        if not force and not user_choice('Patch database is not empty. Are you sure to merge?(y/n):'):
+             return False
 
     psetdir = DB_DIR + '/'+ patchset
     psetinf = DB_DIR + '/'+ patchset + '/' + DB_INF
@@ -425,34 +452,36 @@ def apply_ps(patchset, verbose):
         print 'Patch info [.inf] not found in the patchset'
         return False
 
-    # Load the patchset
-    load_file(psetinf, verbose)
+    # Load patchset without clearing older data
+    load_file(psetinf, verbose, False)
 
     if db_is_empty():
 	print 'Patch database is empty. No patches to apply'
         return False
 
-    success = True
+    allsuccess = True
     pr_debug(verbose, 'Applying patches...')
     for db in db_patches:
         if db_patches[db] > 0:
             pdir = psetdir + '/' + db
             if not os.path.isdir(db + '/.git'):
                 print 'Skipping', db, '; No git repo found !'
-                success = False
+                allsuccess = False
                 continue
-            # TODO: Count patches and match against db
-            success = apply_patches(db, pdir)
-            if not success:
+
+            if not apply_patches(db, pdir, db_patches[db]):
+                allsuccess = False
                 db_patches[db] = 0
+
+        else:
+            pr_debug(verbose, 'Zero patches to apply for ' + db)
 
     save_file()
 
-    if success:
+    if allsuccess:
         print 'Applied patchset', patchset, 'successfully'
     else:
         print 'Failed to apply patchset', psetdir
-        print 'Please revert the partially applied patches using -r'
 
 def import_ps(url, patchset, verbose):
     if not patchset:
@@ -481,6 +510,10 @@ def import_ps(url, patchset, verbose):
         host = arr[0]
         repo = arr[1]
         pr_debug(verbose, 'Importing ' + repo + ' from remote host ' + host)
+
+        if not os.path.isdir(DB_DIR):
+            pr_debug('Creating ' + DB_DIR)
+            os.mkdir(DB_DIR);
 
         if subprocess.call(['scp', '-o', 'StrictHostKeyChecking no', '-r', url + '/' + DB_DIR + '/' + patchset, DB_DIR + '/']):
             print 'Failed to copy !'
@@ -524,6 +557,7 @@ Examples:
 %(prog)s -g v1             Generate patches mentioned in patch db;
                            Name patchset as v1
 %(prog)s -l v1             List the details of patchset v1
+%(prog)s -L bionic         List the git log of repo bionic
 %(prog)s -p v1             Apply patches from the patchset named v1
                            from the patch database
 %(prog)s -i repourl -p PS
@@ -550,8 +584,8 @@ parser.add_argument('-b', '--branch', metavar='NAME', help='Run git branch NAME 
 parser.add_argument('-c', '--checkout', metavar='NAME', help='Run git checkout NAME for all the repositories in the patch database')
 parser.add_argument('-g', '--generate', metavar='PS', help='Generate patchset for all repos [git format-patch] and store it the db with name PS')
 parser.add_argument('-l', '--list', metavar='PS', help='List the details of patchset PS')
-parser.add_argument('-p', '--apply', metavar='PS', help='Apply the patchset PS')
-parser.add_argument('-L', '--log', metavar='REPO', help='List log of the git REPO REPO')
+parser.add_argument('-p', '--patchset', metavar='PS', help='Apply the patchset PS')
+parser.add_argument('-L', '--log', metavar='REPO', help='List log of the git repo REPO')
 parser.add_argument('-i', '--import', metavar='REPO', help='Import patchset from another repo')
 parser.add_argument('-s', '--show', action='store_true', help='Show details of the current patchset')
 parser.add_argument('-r', '--revert', action='store_true', help='Revert patches in all the repos as mentioned in patch database')
@@ -567,7 +601,7 @@ if args['verbose']:
 if args['force']:
     force = True
 
-pr_debug(verbose, 'ARGS:' + str(args))
+# pr_debug(verbose, 'ARGS:' + str(args))
 
 if args['branch']:
     branch(args['branch'], verbose)
@@ -589,16 +623,16 @@ if args['revert']:
     revert(args['revert'], force, verbose)
     sys.exit(0)
 
-if args['apply'] and not args['import']:
-    apply_ps(args['apply'], verbose)
+if args['patchset'] and not args['import']:
+    apply_ps(args['patchset'], force, verbose)
     sys.exit(0)
 
 if args['import']:
-    import_ps(args['import'], args['apply'], verbose)
+    import_ps(args['import'], args['patchset'], verbose)
     sys.exit(0)
 
 if args['log']:
-    list_repo(args['log'], args['patches'], verbose)
+    list_repo_log(args['log'], args['patches'], verbose)
     sys.exit(0)
 
 if args['show']:
@@ -606,7 +640,7 @@ if args['show']:
     sys.exit(0)
 
 if args['add']:
-    add_repo(args['add'], args['patches'], verbose)
+    add_repo(args['add'], args['patches'], force, verbose)
     sys.exit(0)
 
 if args['delete']:
