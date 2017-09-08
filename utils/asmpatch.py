@@ -42,6 +42,15 @@ def is_number(s):
     except ValueError:
         return False
 
+def user_input_int(s, therange=range(0,100)):
+    ch = raw_input(s)
+    while True:
+        if is_number(ch) and int(float(ch)) in therange:
+            return int(float(ch))
+
+        ch = raw_input('Invalid range. Try again(0-99):')
+        continue
+
 def load_file(filename, verbose):
     ret = True
     if not os.path.isfile(filename):
@@ -191,8 +200,12 @@ def validate(repos, patches, verbose):
 
 # List commits and prompt user to choose n
 def get_num_patches(repo):
-    # TODO
-    return 1
+    print 'Listing patches in the repo', repo
+    if subprocess.call(['git', '--git-dir=' + repo + '/.git', 'log', '--oneline', '-10']):
+        print 'Failed to fetch git log for repo', repo, ' assuming 1 patch'
+        return 1
+
+    return user_input_int("Enter #patches to pick(0-99):", range(0,100))
 
 def do_add_repo(repos, patches, verbose):
     i = 0
@@ -234,6 +247,22 @@ def add_repo(repos, patches, verbose):
     load_file(DB_FILE, verbose)
     if do_add_repo(repos, patches, verbose):
         save_file()
+
+def list_repo(repo, patches, verbose):
+    if not os.path.isdir(repo + '/.git'):
+        print 'The directory', r, ' is not a git repository'
+        return False
+
+    # List 10 patches by default
+    n = 10
+    if patches and is_number(patches[0]):
+        n = int(float(patches[0]))
+        if n < 1 or n > 100:
+            n = 10
+
+    if subprocess.call(['git', '--git-dir=' + repo + '/.git', 'log', '--oneline', '-' + str(n)]):
+        print 'Failed to fetch git log for repo', repo, ' assuming 1 patch'
+        return False
 
 def delete_repo(repos, force, verbose):
     if not force and not user_choice('Are you sure you want to delete the repos? (y/n):'):
@@ -522,6 +551,7 @@ parser.add_argument('-c', '--checkout', metavar='NAME', help='Run git checkout N
 parser.add_argument('-g', '--generate', metavar='PS', help='Generate patchset for all repos [git format-patch] and store it the db with name PS')
 parser.add_argument('-l', '--list', metavar='PS', help='List the details of patchset PS')
 parser.add_argument('-p', '--apply', metavar='PS', help='Apply the patchset PS')
+parser.add_argument('-L', '--log', metavar='REPO', help='List log of the git REPO REPO')
 parser.add_argument('-i', '--import', metavar='REPO', help='Import patchset from another repo')
 parser.add_argument('-s', '--show', action='store_true', help='Show details of the current patchset')
 parser.add_argument('-r', '--revert', action='store_true', help='Revert patches in all the repos as mentioned in patch database')
@@ -565,6 +595,10 @@ if args['apply'] and not args['import']:
 
 if args['import']:
     import_ps(args['import'], args['apply'], verbose)
+    sys.exit(0)
+
+if args['log']:
+    list_repo(args['log'], args['patches'], verbose)
     sys.exit(0)
 
 if args['show']:
