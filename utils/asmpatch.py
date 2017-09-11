@@ -18,9 +18,11 @@ DB_DIR='.patchdb'
 DB_INF='db.inf'
 DB_FILE='.patchdb/db.inf'
 CWD = os.getcwd() + '/'
+
+verbose = False
 db_patches = {}
 
-def pr_debug(verbose, s):
+def pr_debug(s):
     if verbose:
         print s
 
@@ -54,20 +56,20 @@ def user_input_int(s, therange=range(0,100)):
 def load_file(filename, verbose, clear=True):
     ret = True
     if not os.path.isfile(filename):
-        pr_debug(verbose, 'Patch database not found !')
+        pr_debug('Patch database not found !')
         return False
 
-    pr_debug(verbose, 'Reading patch database ' + filename)
+    pr_debug('Reading patch database ' + filename)
     f = open(filename, 'r')
     if not f:
         print 'Failed to open patch database', filename
         return False
 
     if clear and db_patches:
-        pr_debug(verbose, 'Clearing old data...')
+        pr_debug('Clearing old data...')
         db_patches.clear()
 
-    pr_debug(verbose, 'Loading data...')
+    pr_debug('Loading data...')
 
     for line in iter(f.readline, ''):
         line = line.strip('\n').strip(' ')
@@ -87,7 +89,7 @@ def load_file(filename, verbose, clear=True):
             ret = False
             break
 
-        # pr_debug(verbose, 'LOAD -->> ' + s1 + ':' + s2)
+        # pr_debug('LOAD -->> ' + s1 + ':' + s2)
         n = int(float(s2))
         db_patches[s1] = n
 
@@ -148,7 +150,7 @@ def list_ps(patchset, verbose):
         print 'Patchset', patchset, 'not found in the database'
         return False
 
-    pr_debug(verbose, 'Listing patchset ' + patchset)
+    pr_debug('Listing patchset ' + patchset)
 
     if not os.path.isfile(psetinf):
         print 'Patch info [.inf] not found in the patchset'
@@ -169,7 +171,7 @@ def validate(repos, patches, verbose):
     i = 0
     for r in repos:
         t = os.path.abspath(r)
-        pr_debug(verbose, 'FULL PATH: ' + t)
+        pr_debug('FULL PATH: ' + t)
         if not t or not os.path.isdir(t):
             print 'Repo not found:', r
             valid = False
@@ -177,7 +179,7 @@ def validate(repos, patches, verbose):
 
         # Strip cwd from the absolute patch of the git repo
         r = t.replace(CWD, '')
-        pr_debug(verbose, 'STRIPPED PATH: ' + r)
+        pr_debug('STRIPPED PATH: ' + r)
         if r[0] == '/' or not os.path.isdir(r):
             print 'The git repo', r, 'is not part of the current project'
             continue
@@ -224,7 +226,7 @@ def do_add_repo(repos, patches, force, verbose):
             if not force and not user_choice('Repo ' + r + ' already present in the db; Overwrite(y/n):'):
                 return False
 
-        pr_debug(verbose, 'Adding repo ' + str(r) + ' with ' + str(n) + ' patch(es)')
+        pr_debug('Adding repo ' + str(r) + ' with ' + str(n) + ' patch(es)')
         db_patches[r] = n
         i =  i + 1
     return True
@@ -232,13 +234,13 @@ def do_add_repo(repos, patches, force, verbose):
 def do_delete_repo(repos, verbose):
     for r in repos:
         if r in db_patches.keys():
-            pr_debug(verbose, 'Removing repo ' + r)
+            pr_debug('Removing repo ' + r)
             del db_patches[r]
             return True
 
         t = r.strip('/')
         if t in db_patches.keys():
-            pr_debug(verbose, 'Removing repo ' + t)
+            pr_debug('Removing repo ' + t)
             del db_patches[t]
             return True
 
@@ -287,7 +289,7 @@ def branch(br, verbose):
         return
 
     cwd = os.getcwd()
-    pr_debug(verbose, 'Running git branch' + br + 'for all repos in the database...')
+    pr_debug('Running git branch' + br + 'for all repos in the database...')
     for db in db_patches:
         if not os.path.isdir(db + '/.git'):
             print 'Skipping', db, '; No git repo found !'
@@ -304,7 +306,7 @@ def checkout(br, verbose):
         return
 
     cwd = os.getcwd()
-    pr_debug(verbose, 'Running git checkout' + br + 'for all repos in the database...')
+    pr_debug('Running git checkout' + br + 'for all repos in the database...')
     for db in db_patches:
         if not os.path.isdir(db + '/.git'):
             print 'Skipping', db, '; No git repo found !'
@@ -327,23 +329,23 @@ def generate(patchset, verbose):
     if os.path.isdir(psetdir):
         if not user_choice('Directory to generate patches is already present; Overwrite(y/n):'):
             return False
-        pr_debug(verbose, 'Removing ' + psetdir)
+        pr_debug('Removing ' + psetdir)
         shutil.rmtree(psetdir)
 
-    pr_debug(verbose, 'Creating patch export directory ' + psetdir)
+    pr_debug('Creating patch export directory ' + psetdir)
     os.mkdir(psetdir)
 
-    pr_debug(verbose, 'Creating patch sub-directories for individual repos')
+    pr_debug('Creating patch sub-directories for individual repos')
     for db in db_patches:
         if db_patches[db] > 0:
-            pr_debug(verbose, 'Creating ' + db)
+            pr_debug('Creating ' + db)
             pdir = psetdir + '/' + db
             os.makedirs(pdir)
         else:
-            pr_debug(verbose, 'Skipping ' + db)
+            pr_debug('Skipping ' + db)
 
     success = True
-    pr_debug(verbose, 'Generating patches...')
+    pr_debug('Generating patches...')
     for db in db_patches:
         if db_patches[db] > 0:
             pdir = psetdir + '/' + db
@@ -372,7 +374,7 @@ def revert(patchset, force, verbose):
 
     cwd = os.getcwd()
     success = True
-    pr_debug(verbose, 'Reverting patches...')
+    pr_debug('Reverting patches...')
     for db in db_patches:
         if db_patches[db] > 0:
             if not os.path.isdir(db + '/.git'):
@@ -398,10 +400,10 @@ def apply_patches(gdir, pdir, db_num):
     filelist = glob.glob(pdir + '/*.patch')
     num = len(filelist)
     if num < 1:
-        pr_debug(verbose, 'No patches to apply for ' + gdir)
+        pr_debug('No patches to apply for ' + gdir)
         return True
 
-    pr_debug(verbose, 'Applying patches ' + str(num) + ' of ' + str(db_num) + ' for repo ' + gdir)
+    pr_debug('Applying patches ' + str(num) + ' of ' + str(db_num) + ' for repo ' + gdir)
 
     cwd = os.getcwd()
     n = 0
@@ -411,7 +413,7 @@ def apply_patches(gdir, pdir, db_num):
         # This git operation has to be done from inside the git repo
         # else the files in the current working directory may get changed
         os.chdir(gdir)
-        pr_debug(verbose, 'Applying ' + fname)
+        pr_debug('Applying ' + fname)
         if subprocess.call(['git', 'am', fullname]):
             print 'Aborting', fname
             subprocess.call(['git', 'am', '--abort'])
@@ -428,7 +430,7 @@ def apply_patches(gdir, pdir, db_num):
     return success
 
 def apply_ps(patchset, force, verbose):
-    pr_debug(verbose, 'Applying patchset ' + patchset)
+    pr_debug('Applying patchset ' + patchset)
     load_file(DB_FILE, False)
 
     # While merging, the database contains the patchset information
@@ -460,7 +462,7 @@ def apply_ps(patchset, force, verbose):
         return False
 
     allsuccess = True
-    pr_debug(verbose, 'Applying patches...')
+    pr_debug('Applying patches...')
     for db in db_patches:
         if db_patches[db] > 0:
             pdir = psetdir + '/' + db
@@ -474,7 +476,7 @@ def apply_ps(patchset, force, verbose):
                 db_patches[db] = 0
 
         else:
-            pr_debug(verbose, 'Zero patches to apply for ' + db)
+            pr_debug('Zero patches to apply for ' + db)
 
     save_file()
 
@@ -488,7 +490,7 @@ def import_ps(url, patchset, verbose):
         print 'Please mention the patchset to import by using -p'
         return False
 
-    pr_debug(verbose, 'Importing patchset ' + patchset + ' from ' + url)
+    pr_debug('Importing patchset ' + patchset + ' from ' + url)
     host = None
     url = url.rstrip('/')
     arr = url.split(':')
@@ -499,7 +501,7 @@ def import_ps(url, patchset, verbose):
         if not user_choice('Patchset ' + patchset + ' already present; Overwrite(y/n):'):
             return False
 
-        pr_debug(verbose, 'Removing older patchset...')
+        pr_debug('Removing older patchset...')
         shutil.rmtree(destdir)
 
     if len(arr) > 2:
@@ -509,7 +511,7 @@ def import_ps(url, patchset, verbose):
     elif len(arr) == 2:
         host = arr[0]
         repo = arr[1]
-        pr_debug(verbose, 'Importing ' + repo + ' from remote host ' + host)
+        pr_debug('Importing ' + repo + ' from remote host ' + host)
 
         if not os.path.isdir(DB_DIR):
             pr_debug('Creating ' + DB_DIR)
@@ -521,7 +523,7 @@ def import_ps(url, patchset, verbose):
 
     else:
         repo = arr[0]
-        pr_debug(verbose, 'Importing ' + repo + ' from local host ')
+        pr_debug('Importing ' + repo + ' from local host ')
 
         if not os.path.isdir(repo):
             print 'Local repo', repo, 'not found'
@@ -537,10 +539,17 @@ def import_ps(url, patchset, verbose):
             print 'The patch info file [.inf] not found in the patchset', patchset
             return False
 
-        pr_debug(verbose, 'Copying data... ')
+        pr_debug('Copying data... ')
         shutil.copytree(pdir, destdir)
 
     return True
+
+
+# Main
+if len(sys.argv) <= 1:
+    bname = os.path.basename(sys.argv[0])
+    print '\nType', bname ,'-h for help/usage\n\n',
+    sys.exit(0)
 
 # Helptext
 
@@ -601,7 +610,7 @@ if args['verbose']:
 if args['force']:
     force = True
 
-# pr_debug(verbose, 'ARGS:' + str(args))
+# pr_debug('ARGS:' + str(args))
 
 if args['branch']:
     branch(args['branch'], verbose)
