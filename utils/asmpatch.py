@@ -469,6 +469,7 @@ def apply_ps(patchset, force, verbose):
             if not os.path.isdir(db + '/.git'):
                 print 'Skipping', db, '; No git repo found !'
                 allsuccess = False
+                db_patches[db] = 0
                 continue
 
             if not apply_patches(db, pdir, db_patches[db]):
@@ -484,6 +485,9 @@ def apply_ps(patchset, force, verbose):
         print 'Applied patchset', patchset, 'successfully'
     else:
         print 'Failed to apply patchset', psetdir
+        print 'The repos for which the patches could not be applied', \
+              'are marked with zeroes [ asmpatch -s ]\n', \
+              'Rectify them manually and add them to db using asmpatch -a'
 
 def import_ps(url, patchset, verbose):
     if not patchset:
