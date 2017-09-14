@@ -293,11 +293,15 @@ def delete_repo(repos, force):
     do_delete_repo(repos)
     save_file()
 
-def branch(br):
+def branch(br, force):
     load_file(DB_FILE, False)
     if not db_patches or len(db_patches) == 0:
 	print 'Patch database is empty. There is no repo to branch'
         return
+
+    print 'This would create a branch named', br, ' for all the repos in the patch db with HEAD as the tip';
+    if not force and not user_choice('Are you sure, you want to continue? (y/n):'):
+        return False
 
     cwd = os.getcwd()
     pr_debug('Running git branch' + br + 'for all repos in the database...')
@@ -310,11 +314,15 @@ def branch(br):
             print 'Failed to create branch for', db
         os.chdir(cwd)
 
-def checkout(br):
+def checkout(br, force):
     load_file(DB_FILE, False)
     if not db_patches or len(db_patches) == 0:
 	print 'Patch database is empty. There is no repo to checkout'
         return
+
+    print 'This would checkout the current HEAD with a branch named', br;
+    if not force and not user_choice('Are you sure, you want to continue? (y/n):'):
+        return False
 
     cwd = os.getcwd()
     pr_debug('Running git checkout' + br + 'for all repos in the database...')
@@ -635,11 +643,11 @@ if args['force']:
 # pr_debug('ARGS:' + str(args))
 
 if args['branch']:
-    branch(args['branch'])
+    branch(args['branch'], force)
     sys.exit(0)
 
 if args['checkout']:
-    checkout(args['checkout'])
+    checkout(args['checkout'], force)
     sys.exit(0)
 
 if args['generate']:
