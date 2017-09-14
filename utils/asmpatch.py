@@ -186,7 +186,8 @@ def validate(repos, patches):
         r = t.replace(CWD, '')
         pr_debug('STRIPPED PATH: ' + r)
         if r[0] == '/' or not os.path.isdir(r):
-            print 'The git repo', r, 'is not part of the current project'
+            print 'The directory', r, 'is not part of the current project'
+            valid = False
             continue
 
         if not os.path.isdir(r + '/.git'):
