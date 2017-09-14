@@ -58,7 +58,7 @@ def user_input_int(s, therange=range(0,100)):
         ch = raw_input('Invalid range. Try again(0-99):')
         continue
 
-def load_file(filename, verbose, clear=True):
+def load_file(filename, clear=True):
     ret = True
     if not os.path.isfile(filename):
         pr_debug('Patch database not found !')
@@ -143,11 +143,11 @@ def save_file():
     f.close()
     return True
 
-def show_ps(ps, verbose):
-    load_file(DB_FILE, verbose)
+def show_ps(ps):
+    load_file(DB_FILE)
     disp_db()
 
-def list_ps(patchset, verbose):
+def list_ps(patchset):
     psetdir = DB_DIR + '/'+ patchset
     psetinf = DB_DIR + '/'+ patchset + '/' + DB_INF
 
@@ -162,10 +162,10 @@ def list_ps(patchset, verbose):
         return False
 
     # Load the patchset
-    load_file(psetinf, verbose)
+    load_file(psetinf)
     disp_db()
 
-def validate(repos, patches, verbose):
+def validate(repos, patches):
     # repos is always non-null when we are here
     if patches and len(repos) < len(patches):
         print 'The per-repo patches exceeds the repositories mentioned'
@@ -218,7 +218,7 @@ def get_num_patches(repo):
     print ''
     return user_input_int("Enter #patches to pick(0-99):", range(0,100))
 
-def do_add_repo(repos, patches, force, verbose):
+def do_add_repo(repos, patches, force):
     i = 0
     for r in repos:
         # If #patch is mentioned for the repo
@@ -236,7 +236,7 @@ def do_add_repo(repos, patches, force, verbose):
         i =  i + 1
     return True
 
-def do_delete_repo(repos, verbose):
+def do_delete_repo(repos):
     for r in repos:
         if r in db_patches.keys():
             pr_debug('Removing repo ' + r)
@@ -251,12 +251,12 @@ def do_delete_repo(repos, verbose):
 
         print 'Repo', r, 'not found in the database'
 
-def add_repo(repos, patches, force, verbose):
-    if not validate(repos, patches, verbose):
+def add_repo(repos, patches, force):
+    if not validate(repos, patches):
         return False
 
-    load_file(DB_FILE, verbose)
-    if do_add_repo(repos, patches, force, verbose):
+    load_file(DB_FILE)
+    if do_add_repo(repos, patches, force):
         save_file()
 
 def do_list_repo_log(repo, n):
@@ -270,7 +270,7 @@ def do_list_repo_log(repo, n):
 
     return True
 
-def list_repo_log(repo, patches, verbose):
+def list_repo_log(repo, patches):
     if not os.path.isdir(repo + '/.git'):
         print 'The directory', repo, 'is not a git repository'
         return False
@@ -284,15 +284,15 @@ def list_repo_log(repo, patches, verbose):
 
     return do_list_repo_log(repo, n)
 
-def delete_repo(repos, force, verbose):
+def delete_repo(repos, force):
     if not force and not user_choice('Are you sure you want to delete the repos? (y/n):'):
         return False
 
-    load_file(DB_FILE, verbose)
-    do_delete_repo(repos, verbose)
+    load_file(DB_FILE)
+    do_delete_repo(repos)
     save_file()
 
-def branch(br, verbose):
+def branch(br):
     load_file(DB_FILE, False)
     if not db_patches or len(db_patches) == 0:
 	print 'Patch database is empty. There is no repo to branch'
@@ -309,7 +309,7 @@ def branch(br, verbose):
             print 'Failed to create branch for', db
         os.chdir(cwd)
 
-def checkout(br, verbose):
+def checkout(br):
     load_file(DB_FILE, False)
     if not db_patches or len(db_patches) == 0:
 	print 'Patch database is empty. There is no repo to checkout'
@@ -329,7 +329,7 @@ def checkout(br, verbose):
             print 'Failed to checkout branch for', db
         os.chdir(cwd)
 
-def generate(patchset, verbose):
+def generate(patchset):
     load_file(DB_FILE, False)
     if db_is_empty():
 	print 'Patch database is empty. Add repos using -a'
@@ -373,7 +373,7 @@ def generate(patchset, verbose):
     else:
         print 'Failed to generate patches'
 
-def revert(patchset, force, verbose):
+def revert(patchset, force):
     load_file(DB_FILE, False)
     if db_is_empty():
 	print 'Patch database is empty. Nothing to revert'
@@ -444,7 +444,7 @@ def apply_patches(gdir, pdir, db_num):
     os.chdir(cwd)
     return success
 
-def apply_ps(patchset, force, verbose):
+def apply_ps(patchset, force):
     pr_debug('Applying patchset ' + patchset)
     load_file(DB_FILE, False)
 
@@ -470,7 +470,7 @@ def apply_ps(patchset, force, verbose):
         return False
 
     # Load patchset without clearing older data
-    load_file(psetinf, verbose, False)
+    load_file(psetinf, False)
 
     if db_is_empty():
 	print 'Patch database is empty. No patches to apply'
@@ -504,7 +504,7 @@ def apply_ps(patchset, force, verbose):
               'are marked with zeroes [ asmpatch -s ]\n', \
               'Rectify them manually and add them to db using asmpatch -a'
 
-def import_ps(url, patchset, verbose):
+def import_ps(url, patchset):
     if not patchset:
         print 'Please mention the patchset to import by using -p'
         return False
@@ -634,46 +634,46 @@ if args['force']:
 # pr_debug('ARGS:' + str(args))
 
 if args['branch']:
-    branch(args['branch'], verbose)
+    branch(args['branch'])
     sys.exit(0)
 
 if args['checkout']:
-    checkout(args['checkout'], verbose)
+    checkout(args['checkout'])
     sys.exit(0)
 
 if args['generate']:
-    generate(args['generate'], verbose)
+    generate(args['generate'])
     sys.exit(0)
 
 if args['list']:
-    list_ps(args['list'], verbose)
+    list_ps(args['list'])
     sys.exit(0)
 
 if args['revert']:
-    revert(args['revert'], force, verbose)
+    revert(args['revert'], force)
     sys.exit(0)
 
 if args['patchset'] and not args['import']:
-    apply_ps(args['patchset'], force, verbose)
+    apply_ps(args['patchset'], force)
     sys.exit(0)
 
 if args['import']:
-    import_ps(args['import'], args['patchset'], verbose)
+    import_ps(args['import'], args['patchset'])
     sys.exit(0)
 
 if args['log']:
-    list_repo_log(args['log'], args['patches'], verbose)
+    list_repo_log(args['log'], args['patches'])
     sys.exit(0)
 
 if args['show']:
-    show_ps(args['show'], verbose)
+    show_ps(args['show'])
     sys.exit(0)
 
 if args['add']:
-    add_repo(args['add'], args['patches'], force, verbose)
+    add_repo(args['add'], args['patches'], force)
     sys.exit(0)
 
 if args['delete']:
-    delete_repo(args['delete'], force, verbose)
+    delete_repo(args['delete'], force)
     sys.exit(0)
 
