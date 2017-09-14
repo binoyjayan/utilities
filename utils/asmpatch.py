@@ -299,12 +299,12 @@ def branch(br, force):
 	print 'Patch database is empty. There is no repo to branch'
         return
 
-    print 'This would create a branch named', br, ' for all the repos in the patch db with HEAD as the tip';
+    print 'This would create a branch named', br, ' [for all the repos in the patch db] with HEAD as the tip';
     if not force and not user_choice('Are you sure, you want to continue? (y/n):'):
         return False
 
     cwd = os.getcwd()
-    pr_debug('Running git branch' + br + 'for all repos in the database...')
+    pr_debug('Running git branch' + br + '[for all repos in the patch database]')
     for db in db_patches:
         if not os.path.isdir(db + '/.git'):
             print 'Skipping', db, '; No git repo found !'
@@ -320,12 +320,12 @@ def checkout(br, force):
 	print 'Patch database is empty. There is no repo to checkout'
         return
 
-    print 'This would checkout the current HEAD with a branch named', br;
+    print 'This would checkout the current HEAD with a branch named', br, '[for all the repos in the patch db]';
     if not force and not user_choice('Are you sure, you want to continue? (y/n):'):
         return False
 
     cwd = os.getcwd()
-    pr_debug('Running git checkout' + br + 'for all repos in the database...')
+    pr_debug('Running git checkout' + br + '[for all repos in the patch database]')
     for db in db_patches:
         if not os.path.isdir(db + '/.git'):
             print 'Skipping', db, '; No git repo found !'
