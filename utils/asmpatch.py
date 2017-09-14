@@ -13,6 +13,7 @@ import argparse
 import subprocess
 import textwrap
 import glob
+import signal
 
 DB_DIR='.patchdb'
 DB_INF='db.inf'
@@ -25,6 +26,10 @@ db_patches = {}
 def pr_debug(s):
     if verbose:
         print s
+
+def sigint_handler(signal, frame):
+    print '\nExiting...\n'
+    sys.exit(0)
 
 def user_choice(s):
     choices = [ 'y', 'yes', 'n', 'no' ]
@@ -254,6 +259,17 @@ def add_repo(repos, patches, force, verbose):
     if do_add_repo(repos, patches, force, verbose):
         save_file()
 
+def do_list_repo_log(repo, n):
+    print '-' * 70
+    print 'Listing patches in the repo', repo
+    print '-' * 70
+
+    if subprocess.call(['git', '--git-dir=' + repo + '/.git', 'log', '--oneline', '-' + str(n)]):
+        print 'Failed to fetch git log for repo', repo, ' assuming 1 patch'
+        return False
+
+    return True
+
 def list_repo_log(repo, patches, verbose):
     if not os.path.isdir(repo + '/.git'):
         print 'The directory', repo, 'is not a git repository'
@@ -266,13 +282,7 @@ def list_repo_log(repo, patches, verbose):
         if n < 1 or n > 100:
             n = 10
 
-    print '-' * 70
-    print 'Listing patches in the repo', repo
-    print '-' * 70
-
-    if subprocess.call(['git', '--git-dir=' + repo + '/.git', 'log', '--oneline', '-' + str(n)]):
-        print 'Failed to fetch git log for repo', repo, ' assuming 1 patch'
-        return False
+    return do_list_repo_log(repo, n)
 
 def delete_repo(repos, force, verbose):
     if not force and not user_choice('Are you sure you want to delete the repos? (y/n):'):
@@ -364,9 +374,6 @@ def generate(patchset, verbose):
         print 'Failed to generate patches'
 
 def revert(patchset, force, verbose):
-    if not force and not user_choice('Are you sure you want to revert current patchset? (y/n):'):
-        return False
-
     load_file(DB_FILE, False)
     if db_is_empty():
 	print 'Patch database is empty. Nothing to revert'
@@ -381,7 +388,15 @@ def revert(patchset, force, verbose):
                 print 'Skipping', db, '; No git repo found !'
                 success = False
                 continue
+
+            # List log and get user confirmation
+            do_list_repo_log(db, db_patches[db])
+            if not force and not user_choice('Are you sure you want to revert these patchset? (y/n):'):
+                pr_debug('Skipping')
+                continue
+
             os.chdir(db)
+            pr_debug('Reverting ' + str(db_patches[db]) + ' patches')
             if subprocess.call(['git', 'reset', '--hard', 'HEAD~' + str(db_patches[db])]):
                 print 'Failed to revert patches for', db
                 success = False
@@ -550,6 +565,8 @@ def import_ps(url, patchset, verbose):
 
 
 # Main
+signal.signal(signal.SIGINT, sigint_handler)
+
 if len(sys.argv) <= 1:
     bname = os.path.basename(sys.argv[0])
     print '\nType', bname ,'-h for help/usage\n\n',
