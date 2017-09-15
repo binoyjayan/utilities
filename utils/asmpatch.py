@@ -94,9 +94,15 @@ def load_file(filename, clear=True):
             ret = False
             break
 
-        # pr_debug('LOAD -->> ' + s1 + ':' + s2)
         n = int(float(s2))
-        db_patches[s1] = n
+
+        # If repo already present in the dict, add the #patches
+        if s1 in db_patches.keys():
+            # pr_debug('ADD  -->> ' + s1 + ':' + str(db_patches[s1] + n))
+            db_patches[s1] = db_patches[s1] + n
+        else:
+            # pr_debug('LOAD -->> ' + s1 + ':' + s2)
+            db_patches[s1] = n
 
     f.close()
 
