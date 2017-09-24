@@ -57,6 +57,10 @@ struct legacy_mbr {
 struct options {
 	int primary;
 	int legacy;
+	/* This option is for reading GPT data from a backup file where the
+	 * GPT headers are saved by utilities like gdisk. This does not
+	 */
+	int saved;
 	const char *filename;
 };
 
@@ -294,12 +298,14 @@ void print_gpt_partitions(int fd, const struct gpt_header * gpt, char *which)
 }
 
 const char *usage_str = "\n" \
-	"Usage: gread [-h|--help] [-b|--backup] [-m|--mbr] <device file>\n\n" \
-	"--mbr  : Displays legacy-mbr headers\n"\
+	"Usage: gread [-h|--help] [-b|--backup] [-m|--mbr] [-s|--saved] <device file>\n\n" \
+	"--mbr     : Displays legacy-mbr headers\n"\
 	"--backup  : Displays backup headers and partition table instead of primary\n"\
+	"--saved   : Display the GPT data saved in a file\n"\
 	"\nExamples:\n\n"\
 	"  gread -m /dev/sda\n" \
-	"  gread -b /dev/sda\n";
+	"  gread -b /dev/sda\n" \
+	"  gread -s gpt_data.bin\n";
 
 static int is_arg(const char *arg, const char *ch1, const char *ch2)
 {
@@ -313,6 +319,7 @@ int get_options(int argc, const char * argv[], struct options *o)
 	int i, found = 0;
 
 	o->primary = 1;
+	o->saved = 0;
 	o->legacy = 0;
 	o->filename = NULL;
 
@@ -332,6 +339,8 @@ int get_options(int argc, const char * argv[], struct options *o)
 				o->primary = 0;
 			else if (is_arg(argv[i], "-m", "--mbr"))
 				o->legacy = 1;
+			else if (is_arg(argv[i], "-s", "--saved"))
+				o->saved = 1;
 			else {
 				fprintf(stderr, "Invalid argument %s!\n", argv[i]);
 				puts(usage_str);
@@ -384,6 +393,16 @@ int main(int argc, const char * argv[])
 		print_legacy_mbr(fd);
 	else
 		lseek(fd, LOGICAL_BLOCK_SIZE, SEEK_SET);
+
+	// If reading GPT data from a saved file
+	if (o.saved) {
+		if (disp_gpt_header(fd, &header, "Primary"))
+			goto end;
+		if (disp_gpt_header(fd, &header, "Backup"))
+			goto end;
+		print_gpt_partitions(fd, &header, "common");
+		goto end;
+	}
 
 	// Display primary header and partition entries
 	if (o.primary) {
