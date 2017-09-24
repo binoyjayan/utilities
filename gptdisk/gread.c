@@ -206,12 +206,17 @@ void print_legacy_mbr(int fd)
 
 int disp_gpt_header(int fd, struct gpt_header * gpt, char *which)
 {
-	memset(gpt, 0, sizeof(struct gpt_header));
-	read(fd, gpt, sizeof(struct gpt_header));
+	int n;
 	char sz[9], *buf;
+	memset(gpt, 0, sizeof(struct gpt_header));
+	n = read(fd, gpt, sizeof(struct gpt_header));
 	memcpy(sz, gpt->signature, 8);
 	sz[8] = '\0';
 
+	if (n < sizeof(struct gpt_header)) {
+		printf("Got only %d bytes for the %s header!\n", n, which);
+		return 1;
+	}
 	if (strcmp(sz, "EFI PART")) {
 		printf("Invalid GPT %s header !\n", which);
 		return 1;
@@ -225,7 +230,7 @@ int disp_gpt_header(int fd, struct gpt_header * gpt, char *which)
 	printf("Header size      : %d\n", gpt->header_size);
 	printf("Header CRC       : 0x%X\n", gpt->crc_header);
 	printf("LBA Current      : %lu\n", gpt->lba_current);
-	printf("LBA Backup       : %lu\n", gpt->lba_backup);
+	printf("LBA Alternate    : %lu\n", gpt->lba_backup);
 	printf("LBA First usable : %lu\n", gpt->lba_first_usable);
 	printf("LBA Last  usable : %lu\n", gpt->lba_last_usable);
 	buf = uuid_to_str(gpt->disk_guid);
@@ -289,11 +294,11 @@ void print_gpt_partitions(int fd, const struct gpt_header * gpt, char *which)
 }
 
 const char *usage_str = "\n" \
-	"Usage: gread [-h|--help] [-b|--backup] [-l|--legacy] <device file>\n\n" \
-	"--legacy  : Displays legacy-mbr headers\n"\
+	"Usage: gread [-h|--help] [-b|--backup] [-m|--mbr] <device file>\n\n" \
+	"--mbr  : Displays legacy-mbr headers\n"\
 	"--backup  : Displays backup headers and partition table instead of primary\n"\
 	"\nExamples:\n\n"\
-	"  gread -l /dev/sda\n" \
+	"  gread -m /dev/sda\n" \
 	"  gread -b /dev/sda\n";
 
 static int is_arg(const char *arg, const char *ch1, const char *ch2)
@@ -325,7 +330,7 @@ int get_options(int argc, const char * argv[], struct options *o)
 			}
 			else if (is_arg(argv[i], "-b", "--backup"))
 				o->primary = 0;
-			else if (is_arg(argv[i], "-l", "--legacy"))
+			else if (is_arg(argv[i], "-m", "--mbr"))
 				o->legacy = 1;
 			else {
 				fprintf(stderr, "Invalid argument %s!\n", argv[i]);
@@ -349,9 +354,20 @@ int get_options(int argc, const char * argv[], struct options *o)
 	return 0;
 }
 
+static void lba_align(const char *s, int fd, long pos, int align)
+{
+	if (pos % 512) {
+		printf("\nThe device does not end in a valid LBA boundary\n");
+		pos = (pos / align) * align;
+		printf("Aligning the %s to %ld [LBA %ld]\n\n", s, pos, pos/align);
+		lseek(fd, pos, SEEK_SET);
+	}
+}
+
 int main(int argc, const char * argv[])
 {
 	int exitCode = EXIT_SUCCESS;
+	long n;
 	struct gpt_header header;
 	struct options o;
 
@@ -377,21 +393,24 @@ int main(int argc, const char * argv[])
 		goto end;
 	}
 
-	// Seek to the alternate header location at the last LBA
-	if (lseek(fd, -LOGICAL_BLOCK_SIZE, SEEK_END) == -1) {
+	// Seek to the backup header location at the last LBA
+	if ((n = lseek(fd, -LOGICAL_BLOCK_SIZE, SEEK_END)) == -1) {
 		perror("Can't read backup header");
 		exitCode = EXIT_FAILURE;
 		goto end;
 	}
+
+	lba_align("header", fd, n, 512);
 	disp_gpt_header(fd, &header, "Backup");
 
 	// Seek to the backup partition entries
-	if (lseek(fd, -1 * (header.entry_count * header.entry_size +
-		   LOGICAL_BLOCK_SIZE), SEEK_END) == -1) {
+	if ((n = lseek(fd, -1 * (header.entry_count * header.entry_size +
+		   LOGICAL_BLOCK_SIZE), SEEK_END)) == -1) {
 		perror("Can't read backup entries");
 		exitCode = EXIT_FAILURE;
 		goto end;
 	}
+	lba_align("partition table", fd, n, 512);
 	print_gpt_partitions(fd, &header, "Backup");
 
 end:
