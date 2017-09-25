@@ -1,3 +1,7 @@
+/*
+ * Binoy Jayan [ binoyjayan@gmail.com ]
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -336,7 +340,7 @@ void print_legacy_mbr(int fd)
 		if (!memcmp(p, &empty, sizeof(struct mbr_part_entry)))
 			continue;
 		printf("%-9hhu %-12hhu %-12hu 0x%-11hhX", p->status, p->start_head, p->start_sector, p->part_type);
-		printf("%-9hhu %-12hu %-16u %u", p->end_head, p->end_sector, p->first_abs_sector, p->sector_count);
+		printf("%-9hhu %-12hu %-16u %u\n", p->end_head, p->end_sector, p->first_abs_sector, p->sector_count);
 	}
 	puts("");
 }
