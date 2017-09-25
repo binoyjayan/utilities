@@ -12,6 +12,7 @@
 #define PACKED __attribute__  ((packed))
 #define LOGICAL_BLOCK_SIZE    512
 #define ARRAY_SIZE(x)         (sizeof(x) / sizeof((x)[0]))
+#define MAX_LBA_SIZE          (1024 * 1024)
 
 struct gpt_header {
 	char signature[8];
@@ -60,13 +61,20 @@ struct legacy_mbr {
 } PACKED;
 
 struct options {
+	/* Decides if primary/backup GPT has to be displayed */
 	int primary;
+	/* Decides if legacy mbr header has to be displayed */
 	int legacy;
 	/* This option is for reading GPT data from a backup file where the
 	 * GPT headers are saved by utilities like gdisk. This does not
 	 */
 	int saved;
+	/* Start of Partition entries */
+	long int entry_start;
+
+	/* Decides if GUID value has to be displayed instead of type name */
 	int guid;
+	/* Disk / image file */
 	const char *filename;
 };
 
@@ -76,6 +84,8 @@ struct part_type {
 	const char *guid_type;
 	const char *name;
 };
+
+int lba_size = LOGICAL_BLOCK_SIZE;
 
 // GUID partition types
 static const struct part_type part_types[] = {
@@ -315,7 +325,7 @@ wchar_t *utf16_to_wchar(uint16_t * str, int len)
 
 void print_legacy_mbr(int fd)
 {
-	int i;
+	int n;
 	struct mbr_part_entry empty;
 	struct legacy_mbr mbr;
 	struct mbr_part_entry *p;
@@ -323,6 +333,11 @@ void print_legacy_mbr(int fd)
 	memset(&empty, 0, sizeof(struct mbr_part_entry));
 	memset(&mbr, 0, sizeof(struct legacy_mbr));
 	read(fd, &mbr, sizeof(struct legacy_mbr));
+
+	// Skip rest of the LBA if LBA size > sizeof(legacy_mbr)
+	n = lba_size - sizeof(struct legacy_mbr);
+	if (n > 0)
+		lseek(fd, n, SEEK_CUR);
 
 	if (mbr.signature != 0xAA55) {
 		puts("No Protective MBR Found!");
@@ -335,8 +350,8 @@ void print_legacy_mbr(int fd)
         printf("%-9s %-12s %-16s %s", "End head", "End Sect", "First ABS sect", "Sect count");
 	printf("\n---------------------------------------------------------------------------------------------------------\n");
 
-	for (i = 0; i < 4; i++) {
-		p = &mbr.partition_record[i];
+	for (n = 0; n < 4; n++) {
+		p = &mbr.partition_record[n];
 		if (!memcmp(p, &empty, sizeof(struct mbr_part_entry)))
 			continue;
 		printf("%-9hhu %-12hhu %-12hu 0x%-11hhX", p->status, p->start_head, p->start_sector, p->part_type);
@@ -355,13 +370,20 @@ int disp_gpt_header(int fd, struct gpt_header * gpt, char *which)
 	sz[8] = '\0';
 
 	if (n < sizeof(struct gpt_header)) {
-		printf("Got only %d bytes for the %s header!\n", n, which);
+		fprintf(stderr, "Got only %d bytes for the %s header!\n", n, which);
 		return 1;
 	}
 	if (strcmp(sz, "EFI PART")) {
-		printf("Invalid GPT %s header !\n", which);
+		fprintf(stderr, "Invalid GPT %s header !\n", which);
+		if (lba_size == LOGICAL_BLOCK_SIZE)
+			fprintf(stderr, "Try changing the LBA size with the option -l\n");
 		return 1;
 	}
+
+	// Skip the rest of the LBA if LBA size > sizeof(struct gpt_header)
+	n = lba_size - sizeof(struct gpt_header);
+	if (n > 0)
+		lseek(fd, n, SEEK_CUR);
 
 	printf("---------------------------------------------------------------------------------------------------------\n");
 	printf("GPT Header [%s]\n", which);
@@ -403,19 +425,51 @@ const struct part_type* guid_lookup(char *g)
 	return NULL;
 }
 
-void print_gpt_partitions(int fd, const struct gpt_header * gpt, char *which, int guid)
+static void lba_align(const char *s, int fd, long pos, int align)
 {
-	char *tmp;
+	if (pos % lba_size) {
+		fprintf(stderr, "\nThe device does not end in a valid LBA boundary\n");
+		pos = (pos / align) * align;
+		fprintf(stderr, "Aligning the %s to %ld [LBA %ld]\n\n", s, pos, pos/align);
+		lseek(fd, pos, SEEK_SET);
+	}
+}
+
+void print_gpt_partitions(int fd, const struct gpt_header * gpt, char *which, struct options *o)
+{
+	char *tmp, *buf;
+	int entries_size, n;
 	const char *gstr;
 	const struct part_type* ptype;
-	int i = 0;
-	int entries_size = gpt->entry_count * gpt->entry_size;
-	char *buf = (char *) malloc(entries_size);
-
-	read(fd, buf, entries_size);
 	wchar_t *gpt_entry_name;
-	struct part_entry *gentry = (struct part_entry *) buf;
-	struct part_entry gentry_empty;
+	struct part_entry gentry_empty, *gentry;
+
+	entries_size = gpt->entry_count * gpt->entry_size;
+	// Seek to the partition table
+	if (o->entry_start) {
+		// Priority to user provided value for partition entry start
+		if (lseek(fd, o->entry_start * lba_size, SEEK_SET) == -1) {
+			perror("Can't read backup entries");
+			return;
+	        }
+	} else if (gpt->lba_entry_start) {
+		// Next priority to the partition entry start in gpt header
+		if (lseek(fd, gpt->lba_entry_start * lba_size, SEEK_SET) == -1) {
+			perror("Can't read backup entries");
+			return;
+	        }
+	} else {
+	        // Backup partition table could be just before the backup header
+		if (( n = lseek(fd, -1 * (entries_size + lba_size), SEEK_END)) == -1) {
+			perror("Can't read backup entries");
+			return;
+	        }
+		lba_align("partition table", fd, n, LOGICAL_BLOCK_SIZE);
+	}
+
+	buf = (char *) malloc(entries_size);
+	read(fd, buf, entries_size);
+	gentry = (struct part_entry *) buf;
 	memset(&gentry_empty, 0, sizeof(struct part_entry));
 
 	printf("Parition entries [%s]\n", which);
@@ -423,12 +477,12 @@ void print_gpt_partitions(int fd, const struct gpt_header * gpt, char *which, in
 
 	printf("%-37s %-37s %-10s %-10s %-6s %s", "Type GUID", "Unique GUID", "LBA First", "LBA Last", "Attr", "Name\n");
 	printf("-----------------------------------------------------------------------------------------------------------------------------\n");
-	for (; i < gpt->entry_count; i++) {
+	for (n = 0; n < gpt->entry_count; n++) {
 		if (!memcmp(gentry, &gentry_empty, sizeof(struct part_entry)))
 			continue;
 		gpt_entry_name = utf16_to_wchar(gentry->name, 36);
 		tmp = uuid_to_str(gentry->type_guid);
-		if (guid) {
+		if (o->guid) {
 			printf("%-37s ", tmp);
 		} else {
 			ptype = guid_lookup(tmp);
@@ -451,13 +505,14 @@ void print_gpt_partitions(int fd, const struct gpt_header * gpt, char *which, in
 
 	printf("-----------------------------------------------------------------------------------------------------------------------------\n");
 	if (crc32(buf, entries_size) != gpt->crc_entries)
-		fputs("Bad crc_entries.\n", stderr);
+		fputs("Bad CRC for partition entries.\n", stderr);
 
 	free(buf);
 }
 
 const char *usage_str = "\n" \
-	"Usage: gread [-h|--help] [-b|--backup] [-m|--mbr] [-s|--saved] [-g|--guid] <device file>\n\n" \
+	"Usage: gread [-h|--help] [-b|--backup] [-m|--mbr] [-s|--saved]\n"\
+        "             [-g|--guid] [-l|--lba-size n] [-e|--entry_start n] <device file>\n\n" \
 	"--mbr     : Displays legacy-mbr headers\n"\
 	"--backup  : Displays backup headers and partition table instead of primary\n"\
 	"--guid    : Display the GUID type values instead of names\n"\
@@ -466,6 +521,9 @@ const char *usage_str = "\n" \
 	"  gread -m /dev/sda\n" \
 	"  gread -b /dev/sda\n" \
 	"  gread -g /dev/sda\n" \
+	"  gread -g /dev/sda -l 4096\n" \
+	"  gread -g /dev/sda -l 4K\n" \
+	"  gread -g /dev/sda -l 4K -e 2\n" \
 	"  gread -s gpt_data.bin\n";
 
 static int is_arg(const char *arg, const char *ch1, const char *ch2)
@@ -475,13 +533,43 @@ static int is_arg(const char *arg, const char *ch1, const char *ch2)
 	return 1;
 }
 
+long stringtol(const char *str)
+{
+	long n;
+	char *end;
+
+	n = strtol(str, &end, 10);
+	switch(end[0]) {
+	default:
+		if (str != end && end[0] != '\0') {
+			return -1;
+		}
+		break;
+	case 'K':
+	case 'k':
+		n *= 1024;
+		break;
+	case 'M':
+	case 'm':
+		n *= 1024 * 1024;
+		break;
+	case 'G':
+	case 'g':
+		n *= 1024 * 1024 * 1024;
+		break;
+	}
+	return n;
+}
+
 int get_options(int argc, const char * argv[], struct options *o)
 {
 	int i, found = 0;
+	long n;
 
 	o->primary = 1;
 	o->saved = 0;
 	o->legacy = 0;
+	o->entry_start = 0;
 	o->guid = 0;
 	o->filename = NULL;
 
@@ -496,6 +584,38 @@ int get_options(int argc, const char * argv[], struct options *o)
 			if (is_arg(argv[i], "-h", "--help")) {
 				puts(usage_str);
 				return 1;
+			}
+			else if (is_arg(argv[i], "-l", "--lba-size")) {
+				if (i == argc || argv[i+1][0] == '-') {
+					fprintf(stderr, "Insufficient argument for %s!\n", argv[i]);
+					return 1;
+				}
+				i++;
+				n = stringtol(argv[i]);
+				if (n < 0) {
+					fprintf(stderr, "Invalid value for lba size %s!\n", argv[i]);
+					return 1;
+				} else if (n % 512) {
+					fprintf(stderr, "LBA size should be a multiple of %d\n", LOGICAL_BLOCK_SIZE);
+					return 1;
+				} else if (n > MAX_LBA_SIZE) {
+					fprintf(stderr, "LBA size %s is too big!\n", argv[i]);
+					return 1;
+				}
+				lba_size = n;
+			}
+			else if (is_arg(argv[i], "-e", "--entry-start")) {
+				if (i == argc || argv[i+1][0] == '-') {
+					fprintf(stderr, "Insufficient argument for %s!\n", argv[i]);
+					return 1;
+				}
+				i++;
+				n = stringtol(argv[i]);
+				if (n < 0) {
+					fprintf(stderr, "Invalid value for entry start (in LBA unit)%s!\n", argv[i]);
+					return 1;
+				}
+				o->entry_start = n;
 			}
 			else if (is_arg(argv[i], "-b", "--backup"))
 				o->primary = 0;
@@ -527,16 +647,6 @@ int get_options(int argc, const char * argv[], struct options *o)
 	return 0;
 }
 
-static void lba_align(const char *s, int fd, long pos, int align)
-{
-	if (pos % LOGICAL_BLOCK_SIZE) {
-		printf("\nThe device does not end in a valid LBA boundary\n");
-		pos = (pos / align) * align;
-		printf("Aligning the %s to %ld [LBA %ld]\n\n", s, pos, pos/align);
-		lseek(fd, pos, SEEK_SET);
-	}
-}
-
 int main(int argc, const char * argv[])
 {
 	int exitCode = EXIT_SUCCESS;
@@ -556,7 +666,7 @@ int main(int argc, const char * argv[])
 	if (o.legacy)
 		print_legacy_mbr(fd);
 	else
-		lseek(fd, LOGICAL_BLOCK_SIZE, SEEK_SET);
+		lseek(fd, lba_size, SEEK_SET);
 
 	// If reading GPT data from a saved file
 	if (o.saved) {
@@ -564,7 +674,7 @@ int main(int argc, const char * argv[])
 			goto end;
 		if (disp_gpt_header(fd, &header, "Backup"))
 			goto end;
-		print_gpt_partitions(fd, &header, "common", o.guid);
+		print_gpt_partitions(fd, &header, "common", &o);
 		goto end;
 	}
 
@@ -572,29 +682,23 @@ int main(int argc, const char * argv[])
 	if (o.primary) {
 		if (disp_gpt_header(fd, &header, "Primary"))
 			goto end;
-		print_gpt_partitions(fd, &header, "Primary", o.guid);
+		print_gpt_partitions(fd, &header, "Primary", &o);
 		goto end;
 	}
 
 	// Seek to the backup header location at the last LBA
-	if ((n = lseek(fd, -LOGICAL_BLOCK_SIZE, SEEK_END)) == -1) {
+	if ((n = lseek(fd, -lba_size, SEEK_END)) == -1) {
 		perror("Can't read backup header");
 		exitCode = EXIT_FAILURE;
 		goto end;
 	}
 
-	lba_align("header", fd, n, LOGICAL_BLOCK_SIZE);
-	disp_gpt_header(fd, &header, "Backup");
-
-	// Seek to the backup partition entries
-	if ((n = lseek(fd, -1 * (header.entry_count * header.entry_size +
-		   LOGICAL_BLOCK_SIZE), SEEK_END)) == -1) {
-		perror("Can't read backup entries");
-		exitCode = EXIT_FAILURE;
+	// Align header to the LBA boundary
+	lba_align("header", fd, n, lba_size);
+	if (disp_gpt_header(fd, &header, "Backup"))
 		goto end;
-	}
-	lba_align("partition table", fd, n, LOGICAL_BLOCK_SIZE);
-	print_gpt_partitions(fd, &header, "Backup", o.guid);
+
+	print_gpt_partitions(fd, &header, "Backup", &o);
 
 end:
 	close(fd);
