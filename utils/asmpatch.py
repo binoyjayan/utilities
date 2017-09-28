@@ -344,15 +344,16 @@ def checkout(br, force):
             print 'Failed to checkout branch for', db
         os.chdir(cwd)
 
-def generate(patchset):
+def generate(patchset, force):
     load_file(DB_FILE, False)
     if db_is_empty():
 	print 'Patch database is empty. Add repos using -a'
         return False
 
     psetdir = DB_DIR + '/'+ patchset
+
     if os.path.isdir(psetdir):
-        if not user_choice('Directory to generate patches is already present; Overwrite(y/n):'):
+        if not force and not user_choice('Directory to generate patches is already present; Overwrite(y/n):'):
             return False
         pr_debug('Removing ' + psetdir)
         shutil.rmtree(psetdir)
@@ -657,7 +658,7 @@ if args['checkout']:
     sys.exit(0)
 
 if args['generate']:
-    generate(args['generate'])
+    generate(args['generate'], force)
     sys.exit(0)
 
 if args['list']:
