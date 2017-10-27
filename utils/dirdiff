@@ -1,0 +1,102 @@
+#!/usr/bin/python
+#
+# Script to find difference between two directories for presence of files
+# or directories. But it does not care the contents of the files
+# DIRs present in first directory (given as argument) but absent in the
+# second directory is prefixed with a '-' sign in the output. Similarly, DIRs
+# present in the second directory but absent in first directory is prefixed
+# with a '+' sign in the output. A '*' as the prefix indicate a difference
+# in the file types. Alternatively, the DIRs can be displayed without the
+# prefix as well
+
+import sys
+import re
+import os
+
+def usage():
+    bname=os.path.basename(sys.argv[0])
+    print "\nUsage:"
+    print bname + " <dir1> <dir2> [--no-prefix | -n ]\n"
+    print "Examples:"
+    print bname + " dir1 dir2"
+    print bname + " dir1 dir2 -n"
+    print ""
+
+def checkdir(path1, checkdir, prefix):
+    file2  = path1.replace(firstdir, '')
+    path2 = checkdir + file2
+    f = path1.replace(firstdir, '').lstrip("./")
+
+    # If path2 exist
+    if os.path.exists(path2):
+        if os.stat(path1).st_mode == os.stat(path2).st_mode:
+            if prefix:
+                print ' ', f
+        else:
+            print '*', f
+    else:
+        if prefix:
+            print prefix, f
+        else:
+            print f
+
+def iteratedir(dir, check, prefix):
+    # print('Listing contents of ', dir)
+    for filename in os.listdir(dir):
+        if filename == '.' or filename == '..':
+            continue
+        path = os.path.join(dir, filename)
+
+        # Check the file in the other directory
+        checkdir(path, check, prefix)
+        if os.path.isdir(path):
+            iteratedir(path, check, prefix)
+
+# Function to display headers
+def disp_header(d1, d2):
+    print ""
+    print "================================================================"
+    print " DIRs present in", d1, "but absent in", d2
+    print "================================================================"
+
+# Main script begins here
+if len(sys.argv) < 3 or len(sys.argv) > 4:
+    usage()
+    sys.exit(1)
+
+if not os.path.isdir(sys.argv[1]):
+    print "Directory", sys.argv[1], "not found!"
+    sys.exit(1)
+
+if not os.path.isdir(sys.argv[2]):
+    print "Directory", sys.argv[2], "not found!"
+    sys.exit(1)
+
+no_prefix = False
+if len(sys.argv) == 4:
+    if sys.argv[3] == "-n" or sys.argv[3] == "--no-prefix":
+        no_prefix = True
+    else:
+        print "\nInvalid argument:", sys.argv[3]
+        usage()
+        sys.exit(1)
+
+d1 = sys.argv[1]
+d2 = sys.argv[2]
+
+arg1 = os.path.basename(sys.argv[1])
+arg2 = os.path.basename(sys.argv[2])
+
+if no_prefix:
+    disp_header(arg1, arg2);
+    firstdir = d1
+    iteratedir(d1, d2, None)
+    disp_header(arg2, arg1);
+    firstdir = d2
+    iteratedir(d2, d1, None)
+else:
+    firstdir = d1
+    iteratedir(d1, d2, "-")
+    firstdir = d2
+    iteratedir(d2, d1, "+")
+
