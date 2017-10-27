@@ -33,7 +33,10 @@ def checkdir(path1, checkdir, prefix):
             if prefix:
                 print ' ', f
         else:
-            print '*', f
+            if prefix:
+                print '*', f
+            else:
+                print f
     else:
         if prefix:
             print prefix, f
