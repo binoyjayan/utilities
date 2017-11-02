@@ -520,6 +520,65 @@ def apply_ps(patchset, force):
               'are marked with zeroes [ asmpatch -s ]\n', \
               'Rectify them manually and add them to db using asmpatch -a'
 
+def apply_from_dir(patchdir, force):
+    pr_debug('Applying patches from directory ' + patchdir)
+    load_file(DB_FILE, False)
+
+    # While merging, the database contains the patchset information
+    # from both the current database as well as the one which is
+    # being applied (merged). So, while the patch is actually being
+    # applied, it would only merge them both.
+
+    if not db_is_empty():
+        if not force and not user_choice('Patch database is not empty. Are you sure to merge?(y/n):'):
+             return False
+
+    psetdir = DB_DIR + '/'+ patchdir
+
+    if not os.path.isdir(psetdir):
+        print 'Patchset', patchdir, 'not found in the database. Trying directory'
+        psetdir = patchdir
+        if not os.path.isdir(psetdir):
+            print 'Patch directory not found at', psetdir
+            return False
+
+    allsuccess = True
+    pr_debug('Applying patches...')
+    for pdir, dirnames, patches in os.walk(psetdir):
+        if not dirnames:
+            n = len(patches)
+            if len(patches) > 0:
+                g = pdir.replace(psetdir + '/', '')
+                if not os.path.isdir(g + '/.git'):
+                    print 'Skipping', g, '; No git repo found !'
+                    allsuccess = False
+                    db_patches[g] = 0
+                    continue
+
+                if apply_patches(g, pdir, n):
+                   # If repo already present in the dict, add the #patches
+                   if g in db_patches.keys():
+                       # pr_debug('ADD  -->> ' + g + ':' + str(db_patches[g] + n))
+                       db_patches[g] = db_patches[g] + n
+                   else:
+                       # pr_debug('LOAD -->> ' + g + ':' + n)
+                       db_patches[g] = n
+                else:
+                    allsuccess = False
+                    db_patches[g] = 0
+            else:
+                pr_debug('Zero patches to apply for ' + pdir)
+
+    save_file()
+
+    if allsuccess:
+        print 'Applied patches from', patchdir, 'successfully'
+    else:
+        print 'Failed to apply patchset', psetdir
+        print 'The repos for which the patches could not be applied', \
+              'are marked with zeroes [ asmpatch -s ]\n', \
+              'Rectify them manually and add them to db using asmpatch -a'
+
 def import_ps(url, patchset):
     if not patchset:
         print 'Please mention the patchset to import by using -p'
@@ -631,6 +690,7 @@ parser.add_argument('-c', '--checkout', metavar='NAME', help='Run git checkout N
 parser.add_argument('-g', '--generate', metavar='PS', help='Generate patchset for all repos [git format-patch] and store it the db with name PS')
 parser.add_argument('-l', '--list', metavar='PS', help='List the details of patchset PS')
 parser.add_argument('-p', '--patchset', metavar='PS', help='Apply the patchset PS')
+parser.add_argument('-y', '--apply', metavar='DIR', help='Apply the patches from dir DIR in patchdb')
 parser.add_argument('-L', '--log', metavar='REPO', help='List log of the git repo REPO')
 parser.add_argument('-i', '--import', metavar='REPO', help='Import patchset from another repo')
 parser.add_argument('-s', '--show', action='store_true', help='Show details of the current patchset')
