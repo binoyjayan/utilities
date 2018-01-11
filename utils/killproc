@@ -1,6 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
-# declare -a procarr
+declare -a procarr
+
+BASESTR=`basename $0`
+usage()
+{
+	echo ""
+	echo "Usage : $BASESTR -u <user1> [ -u user2 ... ] [ -h ]"
+	echo ""
+	echo "Examples:"
+	echo ""
+	echo " $BASESTR -h           Displays help message"
+	echo " $BASESTR -u user      Kill processes owned by user"
+	echo " $BASESTR -u u1 -u u2  Kill processes owned by u1 and u2"
+	echo ""
+}
 
 kill_user_procs()
 {
@@ -55,13 +69,15 @@ do
             exit 1
         fi
         shift 2
-    elif [ "$1" = "-h" ]; then
+    elif [ "$1" == "-h" ]; then
         op="$2"
-        if [ ${op:0:1} != "-" ]; then
+        if [[ "$op" != "" && "${op:0:1}" != "-" ]]; then
             echo "The option -h does not take any argument!"
             exit 1
         fi
         shift 1
+        usage
+	exit
     else
         echo "Program $0 does not recognize option $1"
         exit 1
