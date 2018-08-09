@@ -72,7 +72,9 @@ s3cmd -d listmp s3://BUCKET/msg1.txt 1234 2>> $LOG
 s3cmd -d multipart s3://BUCKET1 2>> $LOG
 
 
+echo ""
 echo "Debug output written to $LOG"
+echo ""
 
 
 

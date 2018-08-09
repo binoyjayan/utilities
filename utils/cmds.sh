@@ -8,7 +8,10 @@ alias gc="git checkout"
 alias gsh="git show"
 alias gco="git commit"
 alias gca="git commit --amend"
+alias gca2="git commit --amend --no-edit"
 alias gcp="git cherry-pick"
+
+alias gpf="git push --force"
 
 alias gre="git rerere"
 alias grs="git rerere status"
@@ -31,6 +34,9 @@ alias boot="sudo fastboot boot"
 alias vo="vim -O"
 
 alias pico="sudo picocom /dev/ttyUSB0 -b 115200 -l"
+alias s3test="../test/s3cmd.sh"
+
+alias Lindent="/home/binoy/work/LINUX/linux/scripts/Lindent"
 
 # alias minicom="echo Use picocom instead of /usr/bin/minicom. Remove alias in ~/scripts/cmds.sh"
 # alias gls="git ls-files -u  | awk '{print $4}' | sort -u"
@@ -39,3 +45,5 @@ alias pico="sudo picocom /dev/ttyUSB0 -b 115200 -l"
 # alias gr="git rebase"
 # alias grc="git rebase --continue"
 
+export LOGLEVEL=1
+export BLD_TYPE=Debug
