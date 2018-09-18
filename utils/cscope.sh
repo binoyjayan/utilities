@@ -42,7 +42,7 @@ touch cscope.files
 echo "Find files..."
 find    $dir                            \
         -path "$dir/build/*" -prune -o  \
-        -path "$dir/.git*"   -prune -o  \
+        -name ".git*"        -prune -o  \
         -name "*cscope*"     -prune -o  \
         -name "tags"         -prune -o  \
         -type f -print >> cscope.files
