@@ -1,11 +1,12 @@
 #!/bin/bash
 HELPFLAG=false
 SETIPFLAG=false
+PINGFLAG=false
 BASESTR=`basename $0`
 sshpass -V 2>&1 > /dev/null ; CODE="$?"
 
 # IP addresses of hosts to configure traffic ips ffor
-declare -a hostips=(
+declare -a sethostips=(
 "143.182.95.50"
 "143.182.94.102"
 "143.182.95.51"
@@ -14,7 +15,7 @@ declare -a hostips=(
 )
 
 # Traffic IPs to set
-declare -a trafficips=(
+declare -a settrafficips=(
 "192.168.0.201"
 "192.168.0.202"
 "192.168.0.204"
@@ -23,7 +24,7 @@ declare -a trafficips=(
 )
 
 # Traffic interface to set ip for
-declare -a interfaces=(
+declare -a setinterfaces=(
 "eth3"
 "eth3"
 "eth2"
@@ -50,7 +51,7 @@ declare -a hostnames=(
 "PO_WIFI2.2"
 )
 
-declare -a verifyhostips=(
+declare -a hostips=(
 "143.182.95.50"
 "143.182.94.102"
 "143.182.95.51"
@@ -67,7 +68,8 @@ declare -a verifyhostips=(
 "143.182.94.164"
 "143.182.94.165"
 )
-declare -a verifyinterfaces=(
+
+declare -a interfaces=(
 "eth3"
 "eth3"
 "eth2"
@@ -83,6 +85,27 @@ declare -a verifyinterfaces=(
 "eth5"
 "eth5"
 "eth5"
+)
+
+# Hosts to use for originating ping requests
+declare -a pinghosts=(
+"143.182.95.50"
+"143.182.94.102"
+"143.182.95.51"
+"143.182.94.108"
+"143.182.94.105"
+"143.182.94.164"
+"143.182.94.165"
+)
+# Ttraffic IPs that are pinged
+declare -a pingips=(
+"192.168.0.201"
+"192.168.0.202"
+"192.168.0.204"
+"192.168.0.220"
+"192.168.0.203"
+"192.168.0.88"
+"192.168.0.11"
 )
 
 usage()
@@ -117,13 +140,13 @@ get_ip_address()
 	for (( i=0; i<${arraylength}; i++ ))
 	do
 		NAME=${hostnames[$i]}
-		HOST=${verifyhostips[$i]}
-		INTF=${verifyinterfaces[$i]}
+		HOST=${hostips[$i]}
+		INTF=${interfaces[$i]}
 		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ifconfig ${INTF} | grep 'inet addr'"
 		# echo "$CMD"
 		OUT=""
 		OUT=`$CMD`
-		echo -e "$NAME \t : $OUT"
+                echo -e "$NAME [$HOST] \t : $OUT"
 		if [ "$OUT" == "" ]; then
 			CNT_ERR=`expr $CNT_ERR + 1`
 		else
@@ -138,6 +161,30 @@ get_ip_address()
 
 }
 
+# To ping CPEs
+ping_ip_address()
+{
+	echo "Ping ip addresses..."
+	echo ""
+	arraylength=${#pinghosts[@]}
+	for (( i=0; i<${arraylength}; i++ ))
+	do
+		HOST=${pinghosts[$i]}
+		TRAF=${pingips[$i]}
+		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ping -c 5 ${TRAF} | grep 'packet loss'"
+		OUT=""
+		OUT=`$CMD`
+                echo -e "$TRAF \t : $OUT"
+		if [ "$OUT" == "" ]; then
+			CNT_ERR=`expr $CNT_ERR + 1`
+		else
+			CNT_OK=`expr $CNT_OK + 1`
+		fi
+	done
+	echo ""
+
+}
+
 # To run a command as follows:
 # sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@143.182.95.50 "echo ${PASSWD} | sudo -S ifconfig eth0"
 set_ip_address()
@@ -147,12 +194,12 @@ set_ip_address()
 	echo ""
 	CNT_OK=0
 	CNT_ERR=0
-	arraylength=${#hostips[@]}
+	arraylength=${#sethostips[@]}
 	for (( i=0; i<${arraylength}; i++ ))
 	do
-		HOST=${hostips[$i]}
-		TRAF=${trafficips[$i]}
-		INTF=${interfaces[$i]}
+		HOST=${sethostips[$i]}
+		TRAF=${settrafficips[$i]}
+		INTF=${setinterfaces[$i]}
 		echo "Setting ip for host $HOST, IP:$TRAF, intf $INTF"
 		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} echo ${PASSWD} $PIPE sudo -p '' -S ifconfig ${INTF} ${TRAF} netmask 255.255.255.0"
 		# echo "$CMD"
@@ -187,11 +234,14 @@ fi
 # Main script execution
 echo ""
 found=0
-while getopts "p:sh" opt; do
+while getopts "p:gsh" opt; do
   found=1
   case $opt in
     p)
         PASSWD=$OPTARG
+        ;;
+    g)
+        PINGFLAG=true
         ;;
     s)
         SETIPFLAG=true
@@ -224,5 +274,8 @@ fi
 
 get_ip_address
 
+if [ "$PINGFLAG" == "true" ]; then
+	ping_ip_address
+fi
 
 
