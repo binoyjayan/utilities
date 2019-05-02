@@ -207,14 +207,14 @@ while getopts "p:sh" opt; do
   esac
 done
 
-if [ "$PASSWD" == "" ]; then
-	echo "Please specify password using -p; -h for usage"
-	echo ""
+if [ "$HELPFLAG" == "true" ]; then
+	usage
 	exit
 fi
 
-if [ "$HELPFLAG" == "true" ]; then
-	usage
+if [ "$PASSWD" == "" ]; then
+	echo "Please specify password using -p; -h for usage"
+	echo ""
 	exit
 fi
 
