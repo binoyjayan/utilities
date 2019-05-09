@@ -161,26 +161,37 @@ get_ip_address()
 
 }
 
-# To ping CPEs
+# To ping all CPEs from every other CPE
 ping_ip_address()
 {
-	echo "Ping ip addresses..."
-	echo ""
-	arraylength=${#pinghosts[@]}
-	for (( i=0; i<${arraylength}; i++ ))
+	echo "Perform Ping test..."
+	CNT_OK=0
+	CNT_ERR=0
+	hostarrlen=${#pinghosts[@]}
+	pingarrlen=${#pingips[@]}
+	for (( i=0; i<${hostarrlen}; i++ ))
 	do
 		HOST=${pinghosts[$i]}
-		TRAF=${pingips[$i]}
-		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ping -c 5 ${TRAF} | grep 'packet loss'"
-		OUT=""
-		OUT=`$CMD`
-                echo -e "$TRAF \t : $OUT"
-		if [ "$OUT" == "" ]; then
-			CNT_ERR=`expr $CNT_ERR + 1`
-		else
-			CNT_OK=`expr $CNT_OK + 1`
-		fi
+		echo ""
+		echo "Pinging CPEs from host [${HOST}] ..."
+		for (( j=0; j<${pingarrlen}; j++ ))
+		do
+			TRAF=${pingips[$j]}
+			CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ping -c 5 ${TRAF} | grep 'packet loss'"
+			# echo "$CMD"
+			OUT=""
+			OUT=`$CMD`
+			echo -e "$TRAF \t : $OUT"
+			if [[ "$OUT" =~ "0% packet loss" ]]; then
+				CNT_OK=`expr $CNT_OK + 1`
+			else
+				CNT_ERR=`expr $CNT_ERR + 1`
+			fi
+		done
 	done
+	echo ""
+	echo "#ping succeeded : $CNT_OK"
+	echo "#ping failed    : $CNT_ERR"
 	echo ""
 
 }
