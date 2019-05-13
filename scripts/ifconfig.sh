@@ -1,36 +1,13 @@
 #!/bin/bash
 HELPFLAG=false
 SETIPFLAG=false
+GETIPFLAG=false
+GETHOSTNAMEFLAG=false
 PINGFLAG=false
+REBOOTFLAG=false
+PIPE="|"
 BASESTR=`basename $0`
 sshpass -V 2>&1 > /dev/null ; CODE="$?"
-
-# IP addresses of hosts to configure traffic ips ffor
-declare -a sethostips=(
-"143.182.95.50"
-"143.182.94.102"
-"143.182.95.51"
-"143.182.94.108"
-"143.182.94.105"
-)
-
-# Traffic IPs to set
-declare -a settrafficips=(
-"192.168.0.201"
-"192.168.0.202"
-"192.168.0.204"
-"192.168.0.220"
-"192.168.0.203"
-)
-
-# Traffic interface to set ip for
-declare -a setinterfaces=(
-"eth3"
-"eth3"
-"eth2"
-"eth2"
-"eth2"
-)
 
 # Hosts for verification
 declare -a hostnames=(
@@ -87,36 +64,92 @@ declare -a interfaces=(
 "eth5"
 )
 
-# Hosts to use for originating ping requests
-declare -a pinghosts=(
-"143.182.95.50"
-"143.182.94.102"
-"143.182.95.51"
-"143.182.94.108"
-"143.182.94.105"
-"143.182.94.164"
-"143.182.94.165"
-)
-# Ttraffic IPs that are pinged
-declare -a pingips=(
+declare -a trafficips=(
 "192.168.0.201"
 "192.168.0.202"
 "192.168.0.204"
 "192.168.0.220"
 "192.168.0.203"
+"192.168.0.220"
+"172.20.47.214"
+"172.20.47.213"
+"172.20.47.223"
+"172.20.47.223"
+"172.20.47.213"
+"192.168.0.88"
+"192.168.0.11"
 "192.168.0.88"
 "192.168.0.11"
 )
 
+declare -a isduplicate=(
+"no"
+"no"
+"no"
+"no"
+"no"
+"yes"
+"no"
+"no"
+"no"
+"yes"
+"no"
+"no"
+"no"
+"yes"
+"yes"
+)
+
+# flag to indicate if a CPE is LAN
+declare -a islancpe=(
+"yes"
+"yes"
+"yes"
+"yes"
+"yes"
+"yes"
+"no"
+"no"
+"no"
+"no"
+"no"
+"no"
+"no"
+"no"
+"no"
+)
+
+# flag to indicate if a CPE is NSI
+declare -a isnsicpe=(
+"no"
+"no"
+"no"
+"no"
+"no"
+"no"
+"yes"
+"yes"
+"yes"
+"yes"
+"yes"
+"no"
+"no"
+"no"
+"no"
+)
+
 usage()
 {
-      echo ""
       echo "Usage: $BASESTR <option> [parameter]..."
       echo ""
       echo "Options"
       echo ""
       echo "-s              : Set IP address"
       echo "-p <password>   : use password"
+      echo "-i              : Display IP addresses of all CPEs"
+      echo "-o              : Display hostnames of all CPEs"
+      echo "-g              : Ping all hosts via traffic interface"
+      echo "-r              : Reboot all hosts"
       echo "-h              : Display usage"
       echo ""
       echo "EXamples:"
@@ -132,7 +165,7 @@ usage()
 # sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@143.182.95.50 "ifconfig eth3 | grep 'inet addr'"`
 get_ip_address()
 {
-	echo "List ip addresses..."
+	echo "Listing ip addresses..."
 	echo ""
 	CNT_OK=0
 	CNT_ERR=0
@@ -142,11 +175,12 @@ get_ip_address()
 		NAME=${hostnames[$i]}
 		HOST=${hostips[$i]}
 		INTF=${interfaces[$i]}
+		# Get hostname
 		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ifconfig ${INTF} | grep 'inet addr'"
 		# echo "$CMD"
 		OUT=""
 		OUT=`$CMD`
-                echo -e "$NAME [$HOST] \t : $OUT"
+                echo -e "$NAME: [$HOST] \t\t : $OUT"
 		if [ "$OUT" == "" ]; then
 			CNT_ERR=`expr $CNT_ERR + 1`
 		else
@@ -161,31 +195,92 @@ get_ip_address()
 
 }
 
+get_host_names()
+{
+	echo "Listing hostnames..."
+	echo ""
+	CNT_OK=0
+	CNT_ERR=0
+	arraylength=${#hostnames[@]}
+	for (( i=0; i<${arraylength}; i++ ))
+	do
+		NAME=${hostnames[$i]}
+		HOST=${hostips[$i]}
+		INTF=${interfaces[$i]}
+		# Get hostname
+		HNAME=""
+		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} hostname"
+		HNAME=`$CMD`
+                echo -e "$NAME: $HNAME [$HOST]"
+	done
+}
+
+
+# To reboot all hosts
+reboot_all()
+{
+	echo "Rebooting CPEs..."
+	echo ""
+	CHOST=`ip route get 1 | awk '{print $NF;exit}'`
+	arraylength=${#hostnames[@]}
+	for (( i=0; i<${arraylength}; i++ ))
+	do
+		NAME=${hostnames[$i]}
+		HOST=${hostips[$i]}
+		DUP=${isduplicate[$i]}
+		if [[ "$DUP" == "yes" ]]; then
+			# echo "Skipping dupicate ${NAME} [ ${HOST} ]..."
+			continue
+		fi
+		if [[ "$HOST" == "$CHOST" ]]; then
+			# echo "Skipping current host ${NAME} [ ${HOST} ]..."
+			continue
+		fi
+		echo "Rebooting ${NAME} [ ${HOST} ]..."
+		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} echo ${PASSWD} $PIPE sudo -p '' -S reboot"
+		# echo "$CMD"
+		OUT=`$CMD`
+	done
+}
+
 # To ping all CPEs from every other CPE
 ping_ip_address()
 {
 	echo "Perform Ping test..."
 	CNT_OK=0
 	CNT_ERR=0
-	hostarrlen=${#pinghosts[@]}
-	pingarrlen=${#pingips[@]}
+	hostarrlen=${#hostips[@]}
+	trafarrlen=${#trafficips[@]}
 	for (( i=0; i<${hostarrlen}; i++ ))
 	do
-		HOST=${pinghosts[$i]}
+		NAME=${hostnames[$i]}
+		HOST=${hostips[$i]}
+		NSI=${isnsicpe[$i]}
+		DUP=${isduplicate[$i]}
+		# do not ping from nsi
+		if [[ "$NSI" == "yes" || "$DUP" == "yes" ]]; then
+			# echo "Skip NSI CPE [${HOST}] ..."
+			continue
+		fi
 		echo ""
-		echo "Pinging CPEs from host [${HOST}] ..."
-		for (( j=0; j<${pingarrlen}; j++ ))
+		echo "Pinging CPEs from host $NAME [${HOST}] ..."
+		for (( j=0; j<${trafarrlen}; j++ ))
 		do
-			TRAF=${pingips[$j]}
-			CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ping -c 5 ${TRAF} | grep 'packet loss'"
-			# echo "$CMD"
-			OUT=""
-			OUT=`$CMD`
-			echo -e "$TRAF \t : $OUT"
-			if [[ "$OUT" =~ "0% packet loss" ]]; then
-				CNT_OK=`expr $CNT_OK + 1`
-			else
-				CNT_ERR=`expr $CNT_ERR + 1`
+			TRAF=${trafficips[$j]}
+			NSI=${isnsicpe[$j]}
+			DUP=${isduplicate[$j]}
+			# do not ping nsi
+			if [[ "$NSI" == "no" && "$DUP" == "no" ]]; then
+				CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} ping -c 5 ${TRAF} | grep 'packet loss'"
+				# echo "$CMD"
+				OUT=""
+				OUT=`$CMD`
+				echo -e "$TRAF \t : $OUT"
+				if [[ "$OUT" =~ "0% packet loss" ]]; then
+					CNT_OK=`expr $CNT_OK + 1`
+				else
+					CNT_ERR=`expr $CNT_ERR + 1`
+				fi
 			fi
 		done
 	done
@@ -200,18 +295,29 @@ ping_ip_address()
 # sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@143.182.95.50 "echo ${PASSWD} | sudo -S ifconfig eth0"
 set_ip_address()
 {
-	PIPE="|"
 	echo "Setting ip addresses..."
 	echo ""
 	CNT_OK=0
 	CNT_ERR=0
-	arraylength=${#sethostips[@]}
+	CNT_TOT=0
+	arraylength=${#hostnames[@]}
 	for (( i=0; i<${arraylength}; i++ ))
 	do
-		HOST=${sethostips[$i]}
-		TRAF=${settrafficips[$i]}
-		INTF=${setinterfaces[$i]}
-		echo "Setting ip for host $HOST, IP:$TRAF, intf $INTF"
+		NAME=${hostnames[$i]}
+		HOST=${hostips[$i]}
+		TRAF=${trafficips[$i]}
+		INTF=${interfaces[$i]}
+		LAN=${islancpe[$i]}
+		DUP=${isduplicate[$i]}
+		if [[ "$LAN" == "no" ]]; then
+			# echo "Skip Non-LAN CPE $NAME [${HOST}] ..."
+			continue
+		fi
+		if [[ "$DUP" == "yes" ]]; then
+			# echo "Skipping dupicate ${NAME} [ ${HOST} ]..."
+			continue
+		fi
+		echo "Setting ip for $NAME [ $HOST, IP:$TRAF, intf $INTF ]"
 		CMD="sshpass -p ${PASSWD} ssh -oStrictHostKeyChecking=no user@${HOST} echo ${PASSWD} $PIPE sudo -p '' -S ifconfig ${INTF} ${TRAF} netmask 255.255.255.0"
 		# echo "$CMD"
 		`$CMD`
@@ -221,10 +327,11 @@ set_ip_address()
 		else
 			CNT_ERR=`expr $CNT_ERR + 1`
 		fi
+		CNT_TOT=`expr $CNT_TOT + 1`
 		sleep 1
 	done
 	echo ""
-	echo "#IP Addresses [ Total      ] : $arraylength"
+	echo "#IP Addresses [ Total      ] : $CNT_TOT"
 	echo "#IP Addresses [ Set        ] : $CNT_OK"
 	echo "#IP Addresses [ Failed set ] : $CNT_ERR"
 	echo ""
@@ -245,14 +352,23 @@ fi
 # Main script execution
 echo ""
 found=0
-while getopts "p:gsh" opt; do
+while getopts "p:iogrsh" opt; do
   found=1
   case $opt in
     p)
         PASSWD=$OPTARG
         ;;
+    i)
+        GETIPFLAG=true
+        ;;
+    o)
+        GETHOSTNAMEFLAG=true
+        ;;
     g)
         PINGFLAG=true
+        ;;
+    r)
+        REBOOTFLAG=true
         ;;
     s)
         SETIPFLAG=true
@@ -283,10 +399,19 @@ if [ "$SETIPFLAG" == "true" ]; then
 	set_ip_address
 fi
 
-get_ip_address
+if [ "$GETIPFLAG" == "true" ]; then
+	get_ip_address
+fi
+
+if [ "$GETHOSTNAMEFLAG" == "true" ]; then
+	get_host_names
+fi
 
 if [ "$PINGFLAG" == "true" ]; then
 	ping_ip_address
 fi
 
+if [ "$REBOOTFLAG" == "true" ]; then
+	reboot_all
+fi
 
