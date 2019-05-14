@@ -152,11 +152,12 @@ usage()
       echo "-r              : Reboot all hosts"
       echo "-h              : Display usage"
       echo ""
-      echo "EXamples:"
+      echo "Examples:"
       echo ""
       echo "$BASESTR"
-      echo "$BASESTR -p mypass -s"
-      echo "$BASESTR -p mypass"
+      echo "$BASESTR -p mypasswd -i"
+      echo "$BASESTR -p mypasswd -s"
+      echo "$BASESTR -p mypasswd -g"
       echo ""
 
 }
