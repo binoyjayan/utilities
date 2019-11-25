@@ -25,7 +25,7 @@ FILESIZE=1Gi
 BLKSIZE=256Ki
 PERCENT=100
 JOBS=1
-ZONES=10
+ZONESZ=10240 #Size in MiB
 HELPFLAG=false
 EXE=false
 CSV=test.csv
@@ -39,11 +39,11 @@ usage()
       echo ""
       echo "-d dev name     : Device name. Default: $DEV"
       echo "-i iodepth      : IO depth. Default: $IODEP"
-      echo "-s filesize     : size of read/write region. Default: $FILESIZE"
-      echo "-b blksize      : block size. Default: $BLKSIZE"
+      echo "-s filesize     : size of read/write region in zone [with units]. Default: $FILESIZE"
+      echo "-b blksize      : block size [ with units ]. Default: $BLKSIZE"
       echo "-r read percent : Read percentage. Default: $PERCENT"
       echo "-j jobs         : Number of jobs. Default: $JOBS"
-      echo "-j zones        : Number of zones. Default: $ZONES"
+      echo "-j zone sz      : Size of a zone [ in units of MiB). Default: $ZONESZ"
       echo "-o csv          : csv output. Default: $CSV"
       echo "-y              : Execute"
       echo "-h              : Display usage"
@@ -51,7 +51,8 @@ usage()
       echo "EXamples:"
       echo ""
       echo "$BASESTR"
-      echo "$BASESTR -d /dev/capturea -g"
+      echo "$BASESTR -d /dev/capturea -z $ZONESZ -r 100 -o real_100.log"
+      echo "$BASESTR -d /dev/capturea -z $ZONESZ -r 100 -o real_100.log -y"
       echo ""
 }
 
@@ -102,23 +103,23 @@ fio_mix_reads()
     TOTAL=`blockdev --getsize64 $DEV`
     # convert to MiB
     TOTAL=`expr $TOTAL / 1024 / 1024`
-    INC=`expr $TOTAL / $ZONES`
+    SZ=`expr $TOTAL / 1000`
 
     echo ""
-    echo "Disk size: $TOTAL MiB"
-    echo "Performing $ZONES sequential reads in increments of $INC MiBs..."
+    echo "Disk size: $TOTAL MiB. Zone size: $ZONESZ MiB [ suggested: $SZ MiB ]"
     echo ""
 
-   echo "SN,Offset (MiB),Read rate(MiB/s),Write rate(MiB/s)" > $CSV
+    echo "SN,Offset (MiB),Read rate(MiB/s),Write rate(MiB/s)" > $CSV
 
     i=1
     OFF=0
-    TOTAL=`expr $TOTAL - $INC`
+    TOTAL=`expr $TOTAL - $ZONESZ`
+
     while [ $OFF -le $TOTAL ]
     do
         echo "$i. Read $FILESIZE bytes at $OFF Mi"
         test_fio $i
-        OFF=`expr $OFF + $INC`
+        OFF=`expr $OFF + $ZONESZ`
         i=`expr $i + 1`
     done
 

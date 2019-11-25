@@ -1,5 +1,6 @@
 
 alias h="history"
+alias ssc="ssh-keygen -f $HOME/.ssh/known_hosts -R"
 
 alias gs="git status"
 alias gd="git diff"
