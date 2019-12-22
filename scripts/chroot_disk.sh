@@ -87,6 +87,9 @@ if [ ! -f "$IMG" ]; then
 	exit
 fi
 
+DNS_CURR=${MOUNTDIR}${DNS}
+DNS_ORIG=${MOUNTDIR}${DNS}.orig
+
 if [ "$UMOUNTFLAG" == "false" ]; then
 	if mountpoint "$MOUNTDIR" 2>&1 > /dev/null; then
         	echo "$MOUNTDIR is already mounted. Please unmount or use another directory"
@@ -98,13 +101,12 @@ if [ "$UMOUNTFLAG" == "false" ]; then
 	mkdir -p $MOUNTDIR
 
 	mount -o loop,offset=$OFFSET $IMG $MOUNTDIR
-	mount -t proc proc ${MOUNTDIR}/proc
-	mount -t sysfs sys ${MOUNTDIR}/sys
-	mount -o bind /dev ${MOUNTDIR}/dev
+	mount -t proc proc   ${MOUNTDIR}/proc
+	mount -t sysfs sys   ${MOUNTDIR}/sys
+	mount -t tmpfs tmpfs ${MOUNTDIR}/tmp
+	mount -o bind /dev   ${MOUNTDIR}/dev
 
 	if [ "$DNSFLAG" == "true" ]; then
-		DNS_CURR=${MOUNTDIR}${DNS}
-		DNS_ORIG=${MOUNTDIR}${DNS}.orig
 		echo "Copying DNS settings [ backup: $DNS_ORIG ]..."
 		mv ${MOUNTDIR}${DNS} ${MOUNTDIR}${DNS}.orig
 		cp -L $DNS ${MOUNTDIR}${DNS}
@@ -130,6 +132,7 @@ else
 	echo "unmounting..."
 
 	umount ${MOUNTDIR}/dev
+	umount ${MOUNTDIR}/tmp
 	umount ${MOUNTDIR}/sys
 	umount ${MOUNTDIR}/proc
 	umount ${MOUNTDIR}
