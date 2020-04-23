@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# script to remove the ssh fingerprint
+
+if [ "$1" == "" ]
+then
+	echo "Specify an IP address to remove the ssh fingerprint"
+	exit
+fi
+
+ARG="$1"
+
+if [[ $ARG =~ "@" ]]
+then
+	IP=`echo "$ARG" | cut -f2 -d"@"`
+	USER=`echo "$ARG" | cut -f1 -d"@"`
+else
+	IP=$ARG
+	USER=""
+fi
+
+echo "Removing ssh fingerprint for $IP..."
+ssh-keygen -R "$IP"
+
+if [ "$USER" != "" ]; then
+	exec ssh ${USER}@${IP}
+fi
+
