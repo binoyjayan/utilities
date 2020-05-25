@@ -1,31 +1,36 @@
 #!/bin/bash
 
-DISK=$1
-WHOAMI=`whoami`
+# Eject a disk
 
-if [ "$WHOAMI" != "root" ]
+BASESTR=`basename $0`
+usage()
+{
+	echo ""
+	echo "Usage:"
+	echo ""
+	echo "$BASESTR </dev> : Eject disk"
+	echo ""
+	echo "Example:"
+	echo "$BASESTR /dev/sdd"
+	echo ""
+}
+
+if [ "$1" == "" ]
 then
-    echo "Run as root"
-    exit
+	usage
+	exit
 fi
 
-if [ "$DISK" == "" ]
-then
-    echo "Specify the block device to eject"
-    exit
-fi
+LABEL=`basename $1`
+DEVICE="/dev/${LABEL}"
 
-if [ ! -b "$DISK" ]
-then
-    echo "\"$DISK\" is not a block device"
-    exit
-fi
+echo "Flusing buffers on $DEVICE"
+blockdev --flushbufs ${DEVICE}
 
-# echo "Unmounting file systems on $DISK..."
-# udisksctl unmount -b /dev/sdb1
+CMD="echo 1 > /sys/block/${LABEL}/device/delete"
+echo "Ejecting $DEVICE [ $CMD ]..."
+eval ${CMD}
 
-echo "Ejecting disk $DISK..."
-udisksctl power-off -b /dev/sdb
+echo "To reattach disks, run:"
+echo "echo '- - -' > /sys/class/scsi_host/host10/scan"
 
-# udisks --unmount /dev/sda1
-# udisks --detach /dev/sda

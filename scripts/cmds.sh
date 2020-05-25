@@ -18,6 +18,7 @@ alias gpf="git push --force"
 alias gre="git rerere"
 alias grs="git rerere status"
 alias gl="git log"
+alias glo="git log --oneline"
 alias gls="git ls-files -u"
 alias gbr="git branch"
 alias gbl="git blame -e"
@@ -27,6 +28,9 @@ alias gp1="git push gerrit:kernel/msm HEAD:refs/for/LA.AF.1.1.1_kernel"
 alias gplk="git push gerrit:kernel/lk HEAD:refs/for/LNX.LA.2.7.3"
 alias gp8960='git push gerrit:platform/vendor/qcom/msm8960 HEAD:refs/for/LA.AF.1.2.1'
 
+alias gsp="git pull --recurse-submodules"
+alias gsu="git submodule update --init --recursive"
+
 alias chp="git format-patch -1 --stdout | ./scripts/checkpatch.pl - "
 alias chplk="git format-patch -1 --stdout | $MK/scripts/checkpatch.pl - "
 
@@ -35,6 +39,7 @@ alias ad="sudo adb devices"
 alias boot="sudo fastboot boot"
 alias vo="vim -O"
 
+alias tnew="tmux new -s work -n NUC"
 alias pico="sudo picocom /dev/ttyUSB0 -b 115200 -l"
 alias pico1="sudo picocom /dev/ttyUSB1 -b 115200 -l"
 alias s3test="../test/s3cmd.sh"
