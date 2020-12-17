@@ -32,7 +32,8 @@ static int range_to_array(char range[], uint32_t arr[], int size) {
                 }
             } else {
                 // token does not contain a sub range like 'n1-n2'
-                arr[num++] = strtol(token, NULL, 10);
+                if (num < size) 
+                    arr[num++] = strtol(token, NULL, 10);
             }
         }
     }
