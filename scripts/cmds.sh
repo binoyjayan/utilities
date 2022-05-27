@@ -44,6 +44,7 @@ alias pico="sudo picocom /dev/ttyUSB0 -b 115200 -l"
 alias pico1="sudo picocom /dev/ttyUSB1 -b 115200 -l"
 alias s3test="../test/s3cmd.sh"
 
+alias wgetn="wget --no-check-certificate"
 # alias minicom="echo Use picocom instead of /usr/bin/minicom. Remove alias in ~/scripts/cmds.sh"
 # alias gls="git ls-files -u  | awk '{print $4}' | sort -u"
 # alias grs="git rebase --skip"
