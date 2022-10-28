@@ -1,13 +1,16 @@
 #!/bin/bash
 
-Q_AZ="Reservations[*].Instances[*].{Instance:InstanceId,AZ:Placement.AvailabilityZone,Name:Tags[?Key=='Name']|[0].Value}"
-Q_STATE="Reservations[*].Instances[*].{Instance:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key=='Name']|[0].Value}"
-# Q_STATE="Reservations[*].Instances[*].{Instance:InstanceId,State:State.Name,Name:Tags[?Key=='Name']|[0].Value}"
+q_ins="Reservations[*].Instances[*]"
+q_iid="Instance:InstanceId"
+q_az="AZ:Placement.AvailabilityZone"
+q_name="Name:Tags[?Key=='Name']|[0].Value}"
+q_state="Type:InstanceType,State:State.Name"
+q_net="PrivateIp:PrivateIpAddress,PubicIp:NetworkInterfaces[0].Association.PublicIp"
+q_all="${q_ins}.{${q_iid},${q_net},${q_state},${q_name}"
 
-F_NAME="Name=tag:CreatedBy,Values=$USER"
+f_name="Name=tag:CreatedBy,Values=$USER"
 
 aws ec2 describe-instances \
-  --filters Name=tag-key,Values=Name \
-  --query  $Q_STATE \
-  --filters $F_NAME \
+  --query  $q_all \
+  --filters $f_name \
   --output table
