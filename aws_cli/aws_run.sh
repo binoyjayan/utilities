@@ -11,6 +11,25 @@ instance_type="t3.small"
 subnet_id="subnet-2595e242"
 image_id="ami-0022f774911c1d690"  # Amazon Linux AMI
 security_group_id="sg-03b8ebb770a5676cf" # nsg-a
+user_data_file="instance-user-data-file.sh"
+
+# Create a user-data file
+cat > "${user_data_file}" <<EOF_TEST_USER_DATA
+#!/bin/bash
+
+sleep 10
+
+# Install default packages
+yum -y install iperf3 jq htop
+
+# Optional packages
+# yum install docker && usermod -aG docker ec2-user && systemctl start docker
+
+# Package installations that can fail
+yum -y install perf
+
+EOF_TEST_USER_DATA
+
 
 usage() {
     echo ""
@@ -56,5 +75,6 @@ aws ec2 run-instances \
     --key-name "$ssh_key" \
     --security-group-ids "$security_group_id" \
     --subnet-id "$subnet_id" \
-    --tag-specifications "$tags_spec"
+    --tag-specifications "$tags_spec" \
+    --user-data "file://${user_data_file}"
 
