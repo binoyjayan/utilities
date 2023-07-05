@@ -32,7 +32,7 @@ if [ "$security_group_id" == "" ]; then
     exit 1
 fi
 
-tags_list='Tags=[{Key=Name,Value='$nic_name'},{Key=CreatedBy,Value='$created_by'}]'
+tags_list='Tags=[{Key=Name,Value='$nic_name'},{Key=cpacket:CreatedBy,Value='$created_by'}]'
 tags_spec="ResourceType=network-interface,$tags_list"
 
 nic_id=$(aws ec2 create-network-interface \

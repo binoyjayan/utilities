@@ -63,7 +63,7 @@ if [ "$4" != "" ]; then
     echo "Using security group $security_group_id"
 fi
 
-tags_list='Tags=[{Key=Name,Value='$instance_name'},{Key=CreatedBy,Value='$created_by'}]'
+tags_list='Tags=[{Key=Name,Value='$instance_name'},{Key=cpacket:CreatedBy,Value='$created_by'}]'
 tags_spec="ResourceType=instance,$tags_list"
 
 echo "Creating instance..."
