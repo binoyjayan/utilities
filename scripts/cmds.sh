@@ -22,6 +22,7 @@ alias glo="git log --oneline"
 alias gls="git ls-files -u"
 alias gbr="git branch"
 alias gbl="git blame -e"
+alias glg="git log --graph --oneline --all --decorate"
 
 alias gp="git push"
 alias gp1="git push gerrit:kernel/msm HEAD:refs/for/LA.AF.1.1.1_kernel"
