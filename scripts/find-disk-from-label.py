@@ -35,11 +35,14 @@ def find_parent_disk_from_partition(blockdev):
 
 
 def get_block_device_from_mount(mounts_file, mount_point):
-    with open(mounts_file, 'r') as f:
-        for line in f:
-            fields = line.strip().split()
-            if len(fields) >= 2 and fields[1] == mount_point:
-                return fields[0]
+    try:
+        with open(mounts_file, "r") as f:
+            for line in f:
+                fields = line.strip().split()
+                if len(fields) >= 2 and fields[1] == mount_point:
+                    return fields[0]
+    except FileNotFoundError:
+        pass
     return None
 
 
@@ -54,4 +57,3 @@ print(f"The parent device for a partition {part_root}")
 
 device = find_block_device_from_label("sys1")
 print(f"The device is with label: {device}")
-
