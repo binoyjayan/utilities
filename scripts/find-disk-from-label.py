@@ -46,6 +46,22 @@ def get_block_device_from_mount(mounts_file, mount_point):
     return None
 
 
+# Validate that a block device has a file system with the given label
+def block_device_validate_fs(blockdev, label):
+    command = f"blkid {blockdev}"
+    result = subprocess.run(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    if result.returncode == 0:
+        output_lines = result.stdout.split("\n")
+        for line in output_lines:
+            if f'LABEL="{label}"' in line and 'TYPE="ext4"' in line:
+                return True
+        return False
+    else:
+        return False
+
+
 root_device = get_block_device_from_df()
 print(f"Root Device for df: {root_device}")
 
