@@ -1,0 +1,4 @@
+atomic_stack.o
+libatomic_stack.a
+main
+main.o
